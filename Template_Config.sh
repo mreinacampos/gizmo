@@ -318,6 +318,35 @@
 ####################################################################################################
 
 
+############################################################################################################################
+## ----------------------------------------------------------------------------------------------------
+# --------------- Cluster Sink Formation (Sink Particle + continuous clustered star formation & feedback)
+## ----------------------------------------------------------------------------------------------------
+############################################################################################################################
+#CLUSTER_SINK                   # top-level switch to enable any other modules in this section
+#CLUSTER_SINK_ACCRETION=0         # accretion model onto the sink particles. [0] normal Bondi-Hoyle accretion with adative sink radius, [1] Bate's style with fixed accretion radius
+#CLUSTER_SINK_SNII              # add core-collapse SNe feedback - based on IMF-integrated analytical fits from Hopkins+22
+#CLUSTER_SINK_SNIa              # add SNIa feedback - based on IMF-integrated analytical fits from Hopkins+22
+#CLUSTER_SINK_WINDS             # add continuous AGB&OB feedback - based on IMF-integrated analytical fits from Hopkins+22
+#CLUSTER_SINK_RADIATION         # add radiation feedback (to be used together with the RT flags) - based on IMF-integrated analytical fits from Hopkins+22
+#CLUSTER_SINK_AVOID_MERGERS     # avoid mergers of sinks
+
+## ----------------------------------------------------------------------------------------------------
+# ----- debug options
+## ----------------------------------------------------------------------------------------------------
+#CLUSTER_SINK_DEBUG             # output additional printing statements throughout the code
+#CLUSTER_SINK_DEBUG_ONESNE      # only allows for the explosion of one SNe
+#CLUSTER_SINK_DEBUG_NOTHERMALLOSS      # avoid the thermal loss during the injection of FB
+
+## ----------------------------------------------------------------------------------------------------
+# ----- output options
+## ----------------------------------------------------------------------------------------------------
+#CLUSTER_SINK_OUTPUT_NUMSNE             # output the cumulative number of SNe per star particle in the snapshots
+#CLUSTER_SINK_OUTPUT_BOLLUM             # output the bolometric luminosity of each star particle in the snapshots
+#CLUSTER_SINK_OUTPUT_ACCRETION_LENGTH   # output the accretion length of each sink in the snapshots
+#CLUSTER_SINK_OUTPUT_MSPPROPS           # output the initial and current mass, age and metallicity of the multiple stellar populations in the snapshots
+#CLUSTER_SINK_OUTPUT_SFINGPROPS         # output the virial parameter and velocity dispersion calculated for SFing (n > density threshold) gas
+
 
 ####################################################################################################
 # ---- Radiative Cooling & Thermo-Chemistry

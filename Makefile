@@ -98,7 +98,51 @@ INCL =
 endif
 FINCL =
 
+#----------------------------------------------------------------------------------------------
+ifeq ($(SYSTYPE),"nibi")
+  # Linux cluster located at the University of Waterloo (Canada)
+  # https://docs.alliancecan.ca/wiki/Nibi
+  CC       =  mpicc 
+  CXX      = mpicxx -std=c++17
+  FC       = mpif90 -nofor_main
+  OPTIMIZE = -O3 -mavx -g #-ggdb -xCORE-AVX2 -Wno-unknown-pragmas -Wall -Wno-format-security -qopenmp
+  ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
+    OPTIMIZE += -parallel -openmp  # openmp required compiler flags
+  endif
+  GSL_INCL = -I$(EBROOTGSL)/include
+  GSL_LIBS = -L$(EBROOTGSL)/lib -lgsl
+  FFTW_INCL= -I$(EBROOTIMKL)/mkl/include
+  FFTW_LIBS= -L$(EBROOTIMKL)/mkl/lib
+  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi
+  HDF5INCL = -I$(HDF5_DIR)/include -DH5_USE_16_API
+  HDF5LIB  = -L$(HDF5_DIR)/lib -lhdf5 -lgfortran -lz
+  OPT     += -DX86FIX
+  CXXFLAGS = $(CFLAGS)
+  LINKER=$(CXX)
+endif
 
+ifeq ($(SYSTYPE),"nibi-debug")
+  # Linux cluster located at the University of Waterloo (Canada)
+  # Debugging mode
+  # https://docs.alliancecan.ca/wiki/Nibi
+  CC       =  mpicc -O0 -g -ggdb
+  CXX      = mpicxx 
+  FC       = mpif90
+  OPTIMIZE = -Wall -Wno-unused-but-set-variable -Wno-uninitialized -Wno-format-security -Wno-unused-result
+  ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
+    OPTIMIZE += -parallel -openmp  # openmp required compiler flags
+  endif
+  GSL_INCL = -I$(EBROOTGSL)/include
+  GSL_LIBS = -L$(EBROOTGSL)/lib -lgsl
+  FFTW_INCL= -I$(EBROOTIMKL)/mkl/include
+  FFTW_LIBS= -L$(EBROOTIMKL)/mkl/lib
+  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi_cxx
+  HDF5INCL = -I$(HDF5_DIR)/include -DH5_USE_16_API
+  HDF5LIB  = -L$(HDF5_DIR)/lib -lhdf5 -lgfortran -lz
+  OPT     += -DX86FIX
+  CXXFLAGS = $(CFLAGS)
+  LINKER=$(CXX)
+endif
 
 #----------------------------------------------------------------------------------------------
 ifeq ($(SYSTYPE),"Frontera")
@@ -437,6 +481,11 @@ GRACKLELIBS = -lgrackle
 else
 GRACKLEINCL =
 GRACKLELIBS =
+endif
+
+ifeq (CLUSTER_SINK,$(findstring CLUSTER_SINK,$(CONFIGVARS)))
+OBJS    += cluster_sink/feedback_fits.o cluster_sink/formation_stellarpops.o cluster_sink/cluster_sink_util.o
+INCL    += cluster_sink/cluster_sink_proto.h  cluster_sink/feedback_fits.h 
 endif
 
 # linking libraries (includes machine-dependent options above)
