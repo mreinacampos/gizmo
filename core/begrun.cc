@@ -683,6 +683,82 @@ void open_outputfiles(void)
 #endif // output-more-info if
 #endif // SINK_PARTICLES if
 
+#ifdef CLUSTER_SINK
+  if(ThisTask == 0) {snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%scluster_sink", All.OutputDir); mkdir(buf, 02755);}
+  MPI_Barrier(MPI_COMM_WORLD);
+#ifdef CLUSTER_SINK_OUTPUT_FORMPROPS
+  snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%scluster_sink/sink_formation_%d.txt", All.OutputDir, ThisTask);
+  if(!(FdCSFormationDetails = fopen(buf, mode))) {printf("error in opening file '%s'\n", buf); endrun(1);}
+  else if(RestartFlag == 0 && ThisTask == 0) {
+      fprintf(FdCSFormationDetails,"%s Logfiles [1 per MPI task] for the formation properties of star cluster sinks [CLUSTER_SINK_OUTPUT_FORMPROPS]. Columns represent: \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (1) Simulation time [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (2) Particle ID of the sink \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (3) Natal mass of the sink [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (4,5,6) Coordinate (x,y,z) position of the sink at formation [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (7,8,9) Velocity (x,y,z) of the sink at formation [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (10) Internal energy of the natal gas cell [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (11) Temperature of the natal gas cell [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (12) Density of the natal gas cell [physical code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (13) Pressure of the natal gas cell [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (14) Effective sound speed of the natal gas cell [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (15) Linear size of the natal gas cell [physical code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (16) Turbulent velocity variance dv*dv [physical code units] from deviatoric shear tensor \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (17) Virial parameter of the natal cell [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (18) Minimum distance to nearest (other) sink [code units] \n",prefix_char);
+      fprintf(FdCSFormationDetails,"%s   (19-28) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+    }
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST
+  snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%scluster_sink/sink_accretionhist_%d.txt", All.OutputDir, ThisTask);
+  if(!(FdCSAccretionDetails = fopen(buf, mode))) {printf("error in opening file '%s'\n", buf); endrun(1);}
+  else if(RestartFlag == 0 && ThisTask == 0) {
+      fprintf(FdCSAccretionDetails,"%s Logfiles [1 per MPI task] describing the properties of accreted gas cells [CLUSTER_SINK_OUTPUT_ACCRETIONHIST]. Columns represent: \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (1) Simulation time [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (2) Particle ID of the sink \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (3) Mass of the sink [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (4,5,6) Coordinate (x,y,z) position of the sink [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (7) Particle ID of the accreted gas cell \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (8) Mass of the the accreted gas cell [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (9, 10, 11) Distance (in x,y,z) between the sink and the accreted gas cell [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (12, 13, 14) Velocity difference (in x,y,z) between the sink and the accreted gas cell [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (15) Internal energy of the accreted gas cell [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (16) Temperature of the accreted gas cell [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (17) Density of the accreted gas cell [physical code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (18) Pressure of the accreted gas cell [code units] \n",prefix_char);
+      fprintf(FdCSAccretionDetails,"%s   (19-28) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+  }
+  snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%scluster_sink/sink_merginghist_%d.txt", All.OutputDir, ThisTask);
+  if(!(FdCSMergingDetails = fopen(buf, mode))) {printf("error in opening file '%s'\n", buf); endrun(1);}
+  else if(RestartFlag == 0 && ThisTask == 0) {
+    fprintf(FdCSMergingDetails,"%s Logfiles [1 per MPI task] describing the properties of sink mergers [CLUSTER_SINK_OUTPUT_ACCRETIONHIST]. Columns represent: \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (1) Simulation time [code units] \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (2) Particle ID of the primary sink (i.e. most massive) \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (3) Mass of the primary sink [code units] \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (4,5,6) Coordinate (x,y,z) position of the primary sink [code units] \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (7) Particle ID of the secondary sink (i.e. least massive) \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (8) Mass of the secondary sink [code units] \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (9, 10, 11) Distance (in x,y,z) between the primary and secondary sinks [code units] \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (12, 13, 14) Velocity difference (in x,y,z) between the primary and secondary sinks [code units] \n",prefix_char);
+    fprintf(FdCSMergingDetails,"%s   (15-24) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+}
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS
+  snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%scluster_sink/sink_fbgasprops_%d.txt", All.OutputDir, ThisTask);
+  if(!(FdCSFBGasProps = fopen(buf, mode))) {printf("error in opening file '%s'\n", buf); endrun(1);}
+  else if(RestartFlag == 0 && ThisTask == 0) {
+    fprintf(FdCSFBGasProps,"%s Logfiles [1 per MPI task] describing the feedback properties of a given star cluster sink [CLUSTER_SINK_OUTPUT_FBGASPROPS]. Columns represent: \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (1) Simulation time [code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (2) Particle ID of the sink \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (3) Mass of the sink [code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (4,5,6) Coordinate (x,y,z) position of the sink [code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (7) Total number of SNII \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (8) Total number of SNIa \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (9) Total number of SNe \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (10) Density within the kernel [physical code units] \n",prefix_char);
+}
+#endif
+#endif
+
     if(ThisTask != 0) {return;}	/* only the root processors writes to the log files listed below */
 
     snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%s%s", All.OutputDir, "cpu.txt");
@@ -1896,6 +1972,21 @@ void read_parameter_file(char *fname)
       strcpy(tag[nt], "Sink_jet_precession_period");
       addr[nt] = &All.Sink_jet_precess_period;
       id[nt++] = REAL;
+#endif
+
+#ifdef CLUSTER_SINK
+      strcpy(tag[nt], "ClusterSink_MinGasMass");
+      addr[nt] = &All.ClusterSink_MinGasMass;
+      id[nt++] = REAL;
+#ifndef CLUSTER_SINK_AVOID_MERGERS
+      strcpy(tag[nt], "ClusterSink_Delta_AgeInMyr");
+      addr[nt] = &All.ClusterSink_Delta_AgeInMyr;
+      id[nt++] = REAL;
+
+      strcpy(tag[nt], "ClusterSink_Delta_ZZSun");
+      addr[nt] = &All.ClusterSink_Delta_ZZSun;
+      id[nt++] = REAL;
+#endif
 #endif
 
 #ifdef EOS_TABULATED

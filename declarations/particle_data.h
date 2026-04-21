@@ -1,5 +1,23 @@
 /* This structure holds all the information that is stored for each particle of the simulation. */
 
+#ifdef CLUSTER_SINK
+extern struct cluster_sink_multiple_stellar_population
+{
+  MyFloat Mass;
+  MyFloat Age;
+  MyFloat InitialMass;
+  MyFloat Metallicity[NUM_METAL_SPECIES];
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+  MyFloat CumNumSNe; /* flag that indicates cumulative number of SNe for the particle */
+  MyFloat CumNumSNII; /* flag that indicates cumulative number of SNII for the particle */
+  MyFloat CumNumSNIa; /* flag that indicates cumulative number of SNIa for the particle */
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+  MyFloat Light_MassRatio; /* flag that indicates light-to-mass ratio of each star particle */
+#endif
+} *ClusterSink_MSP;
+#endif
+
 extern ALIGN(32) struct particle_data
 {
     short int Type;                 /*!< flags particle type.  0=gas, 1=halo/high-res dm, 2=alt dm/disk/collisionless, 3=pic/dust/bulge/alt dm, 4=new stars, 5=sink */
@@ -117,7 +135,19 @@ extern ALIGN(32) struct particle_data
     MyFloat AgeDeposition_ThisTimeStep; /* age-tracer deposition */
 #endif
 #endif
+#ifdef CLUSTER_SINK
+    MyFloat SNII_ThisTimeStep[CLUSTER_SINK_NUMMSP]; /* flag that indicates number of SNII for the particle in the timestep */
+    MyFloat SNIa_ThisTimeStep[CLUSTER_SINK_NUMMSP]; /* flag that indicates number of SNIa for the particle in the timestep */
 #endif
+#endif // GALSF_FB_MECHANICAL or GALSF_FB_THERMAL
+
+# ifdef CLUSTER_SINK /* properties of the concurrent stellar populations forming within the sink */
+    struct cluster_sink_multiple_stellar_population MSP[CLUSTER_SINK_NUMMSP]; // multiple stellar populations
+#if defined(CLUSTER_SINK_OUTPUT_BOLLUM)
+    MyFloat TotalLuminosity[N_RT_FREQ_BINS]; /* flag that indicates the total luminosity in each band emitted by the particle */
+#endif
+#endif // CLUSTER_SINK
+
 #ifdef GALSF_FB_MECHANICAL
 #define AREA_WEIGHTED_SUM_ELEMENTS 12 /* number of weights needed for full momentum-and-energy conserving system */
     MyFloat Area_weighted_sum[AREA_WEIGHTED_SUM_ELEMENTS]; /* normalized weights for particles in kernel weighted by area, not mass */

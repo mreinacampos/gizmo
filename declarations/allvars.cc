@@ -271,7 +271,18 @@ FILE *FdSinkWindDetails;
 #endif
 #endif
 
-
+#ifdef CLUSTER_SINK
+#ifdef CLUSTER_SINK_OUTPUT_FORMPROPS
+FILE *FdCSFormationDetails;
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST
+FILE *FdCSAccretionDetails;
+FILE *FdCSMergingDetails;
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS
+FILE *FdCSFBGasProps;
+#endif
+#endif
 
 
 

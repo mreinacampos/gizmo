@@ -209,6 +209,21 @@ void init(void)
         All.SolarAbundances[6]=7.57e-4; All.SolarAbundances[7]=7.12e-4; All.SolarAbundances[8]=3.31e-4; All.SolarAbundances[9]=6.87e-5; All.SolarAbundances[10]=1.38e-3;}
 #endif
 #endif
+#if defined(CLUSTER_SINK) // new default abundances in FIRE-3; using Asplund et al. 2009 proto-solar abundances
+    All.SolarAbundances[0]=0.0142; // total metallicity
+    if(NUM_METAL_SPECIES>=10) {
+        All.SolarAbundances[1]=0.27030; // He
+        All.SolarAbundances[2]=2.53e-3; // C
+        All.SolarAbundances[3]=7.41e-4; // N
+        All.SolarAbundances[4]=6.13e-3; // O
+        All.SolarAbundances[5]=1.34e-3; // Ne
+        All.SolarAbundances[6]=7.57e-4; // Mg
+        All.SolarAbundances[7]=7.12e-4; // Si
+        All.SolarAbundances[8]=3.31e-4; // S
+        All.SolarAbundances[9]=6.87e-5; // Ca
+        All.SolarAbundances[10]=1.38e-3; // Fe
+    }
+#endif
 #if defined(GALSF_ISMDUSTCHEM_MODEL)
     Initialize_ISMDustChem_Global_Variables();
 #endif
@@ -285,6 +300,9 @@ void init(void)
 #endif
 #if defined(GALSF_FB_MECHANICAL) || defined(GALSF_FB_THERMAL)
             P[i].SNe_ThisTimeStep = 0;
+#ifdef CLUSTER_SINK
+            for(int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ P[i].SNII_ThisTimeStep[j] = 0; P[i].SNIa_ThisTimeStep[j] = 0; }
+#endif
 #endif
 #ifdef GALSF_FB_MECHANICAL
             int k; for(k=0;k<AREA_WEIGHTED_SUM_ELEMENTS;k++) {P[i].Area_weighted_sum[k] = 0;}
@@ -454,6 +472,15 @@ void init(void)
 	    P[i].SuperTimestepFlag = 0;
 #endif
 #endif
+/*#ifdef CLUSTER_SINK - MRC old
+        if((P[i].Type == 4) || (P[i].Type == 5)) 
+        {
+                P[i].MSP[0].Mass = P[i].Mass; // mass of the first MSP
+                P[i].MSP[0].InitialMass = P[i].Mass; // initial mass of the first MSP
+                P[i].MSP[0].Age = All.Time; // age of the first MSP
+                for(int k=0;k<NUM_METAL_SPECIES;k++){P[i].MSP[0].Metallicity[k] = P[i].Metallicity[k];} // metallicity of the first MSP
+        }
+#endif*/
         if(P[i].Type == 5)
         {
             count_holes++;
@@ -466,6 +493,9 @@ void init(void)
                 P[i].Sink_ROI = 0;
 #endif
 #ifdef SINGLE_STAR_SINK_DYNAMICS
+                P[i].Sink_Mass = P[i].Mass;
+#endif
+#ifdef CLUSTER_SINK
                 P[i].Sink_Mass = P[i].Mass;
 #endif
 #ifdef SINGLE_STAR_STARFORGE_PROTOSTELLAR_EVOLUTION // properly initialize luminosity

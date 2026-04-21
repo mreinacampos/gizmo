@@ -4,9 +4,9 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
-#include "../allvars.h"
-#include "../proto.h"
-#include "../kernel.h"
+#include "../declarations/allvars.h"
+#include "../core/proto.h"
+#include "../mesh/kernel.h"
 
 /* Routines to calculate different feedback mechanisms rates, masses, energies and yields
  * based on the IMF-integrated analytical fits from https://ui.adsabs.harvard.edu/abs/2022arXiv220300040H/abstract
@@ -170,7 +170,7 @@ void calculate_fb_mass_ejected_for_msps(struct fb_massloss_for_msp *fb_dm, int i
 #ifdef CLUSTER_SINK_WINDS
     // particle timestep in Myr
     double dt = GET_PARTICLE_TIMESTEP_IN_PHYSICAL(i) * UNIT_TIME_IN_MYR;
-#ifdef BH_INTERACT_ON_GAS_TIMESTEP
+#ifdef SINK_INTERACT_ON_GAS_TIMESTEP
     dt = P[i].dt_since_last_gas_search * UNIT_TIME_IN_MYR;
 #endif
     // total mass ejected by winds in code units 
@@ -199,7 +199,7 @@ void reduce_mass_from_msps(void)
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         if((P[i].Type!=4)&&(P[i].Type!=5)) {continue;} // has this sink output feedback in this timestep?
-#ifdef BH_INTERACT_ON_GAS_TIMESTEP
+#ifdef SINK_INTERACT_ON_GAS_TIMESTEP
         if(P[i].Type == 5 && !P[i].do_gas_search_this_timestep) {continue;}
 #endif
         if(P[i].SNe_ThisTimeStep == 0) {continue;} // has this sink output feedback in this timestep?
@@ -221,11 +221,11 @@ void reduce_mass_from_msps(void)
             //if((P[i].Mass<0)||(isnan(P[i].Mass))) {P[i].Mass=0;}
 
             // remove mass from the expected BH mass too
-            P[i].BH_Mass -= (fb_dm.mass_snii + fb_dm.mass_snia + fb_dm.mass_winds);
+            P[i].Sink_Mass -= (fb_dm.mass_snii + fb_dm.mass_snia + fb_dm.mass_winds);
             
 #ifdef CLUSTER_SINK_DEBUG
             if (P[i].ID == DEBUG_ID){
-                printf("[DEBUG - reduce_mass_from_msps] - ThisTask %d, P[i].ID %d - P.Mass %g, P.BH_Mass %g - MSP j %d - MSP_Mass %g tform %g - mass_snii %g, mass_snia %g, mass_winds %g -- Cum NumSNe [%g, %g, %g]\n", ThisTask, P[i].ID, P[i].Mass, P[i].BH_Mass, j, 
+                printf("[DEBUG - reduce_mass_from_msps] - ThisTask %d, P[i].ID %d - P.Mass %g, P.Sink_Mass %g - MSP j %d - MSP_Mass %g tform %g - mass_snii %g, mass_snia %g, mass_winds %g -- Cum NumSNe [%g, %g, %g]\n", ThisTask, P[i].ID, P[i].Mass, P[i].Sink_Mass, j, 
                     P[i].MSP[j].Mass, P[i].MSP[j].Age, fb_dm.mass_snii, fb_dm.mass_snia, fb_dm.mass_winds, P[i].MSP[j].CumNumSNe, P[i].MSP[j].CumNumSNII, P[i].MSP[j].CumNumSNIa);
             }
 #endif

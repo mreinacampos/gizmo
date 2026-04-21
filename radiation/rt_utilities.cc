@@ -67,6 +67,24 @@ int rt_get_source_luminosity(int i, int mode, double *lum)
 #else
     active_check += rt_get_lum_band_singlestar(i,mode,lum); // get luminosities for individual star/sink particles assuming they are protostars or stars
 #endif
+#elif defined(CLUSTER_SINK)
+    double lum_msp[N_RT_FREQ_BINS]; 
+    for(int k=0;k<N_RT_FREQ_BINS;k++) {lum[k] = 0; 
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+    P[i].TotalLuminosity[k] = 0;
+#endif
+    } // zero out the luminosity bins to avoid rubbish
+    for (int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ // change the input quantities to the current MSP properties
+        if(P[i].MSP[j].Mass == 0){continue;} // this MSP has no FB
+        for(int k=0;k<N_RT_FREQ_BINS;k++) {lum_msp[k] = 0;} // zero out the luminosity bins
+        active_check += rt_get_lum_band_stellarpopulation(i,mode,lum_msp,j); // get luminosities for star particles assuming they represent IMF-averaged populations
+        for(int k=0;k<N_RT_FREQ_BINS;k++) { // add up contributions of all MSPs
+            lum[k] += lum_msp[k];
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+            P[i].TotalLuminosity[k] += lum_msp[k];
+#endif
+        }
+    }
 #else
     active_check += rt_get_lum_band_stellarpopulation(i,mode,lum); // get luminosities for star particles assuming they represent IMF-averaged populations
 #if defined(SINK_PARTICLES)
@@ -289,23 +307,42 @@ double rt_absorb_frac_albedo(int i, int k_freq)
 /* subroutine for 'rt_get_source_luminosity', with identical variables, for cases where the radiation
     represents IMF-averaged stellar populations, i.e. the sort of thing which would be used in galaxy simulations.
  */
+#ifdef CLUSTER_SINK // MRC - check how to use function overloading
+int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, int j)
+#else
 int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum)
+#endif
 {
+#ifdef CLUSTER_SINK 
+    if((P[i].Type != 4) && (P[i].Type != 5)) {return 0;} // allow 'star' and 'sink' particles act in this subroutine //
+#else
     if(!((P[i].Type == 4) || ((All.ComovingIntegrationOn==0)&&((P[i].Type==2)||(P[i].Type==3))))) {return 0;} // only star-type particles act in this subroutine //
+ #endif
     if(P[i].Mass <= 0 || !isfinite(P[i].Mass)) {return 0;}
     int active_check = 0; // default to inactive //
 #if defined(GALSF) /* basically none of these modules make sense without the GALSF module active */
     double star_age = evaluate_stellar_age_Gyr(i), m_sol = P[i].Mass * UNIT_MASS_IN_SOLAR;
+
+#ifdef CLUSTER_SINK
+    if(P[i].MSP[j].Mass == 0){return 0;} // this MSP has no FB to produce
+    star_age = evaluate_stellar_age_Gyr_for_msp(i,j), m_sol = P[i].MSP[j].Mass * UNIT_MASS_IN_SOLAR;
+#endif
+
     if((star_age<=0) || isnan(star_age)) {return 0;} // calculate stellar age, will be used below, and catch for bad values
 #if (GALSF_FB_FIRE_STELLAREVOLUTION <= 2)
     if(star_age > 0.1) {return 0;} // old optimization, not really needed with how we do this now //
 #endif
 
+#ifdef CLUSTER_SINK
+    double L = evaluate_light_to_mass_ratio(star_age, i, j) * m_sol / UNIT_LUM_IN_SOLAR; if(L<=0 || isnan(L)) {L=0;}
+#else 
+    double L = evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR; if(L<=0 || isnan(L)) {L=0;}
+#endif
     
 #if defined(GALSF_FB_FIRE_RT_LONGRANGE) /* three-band (UV, OPTICAL, IR) approximate spectra for stars as used in the FIRE (Hopkins et al.) models */
     SET_ACTIVE_RT_CHECK();
     double f_uv=All.PhotonMomentum_fUV, f_op=All.PhotonMomentum_fOPT;
-    double L = evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR; if(L<=0 || isnan(L)) {L=0;}
+    // MRC double L = evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR; if(L<=0 || isnan(L)) {L=0;}
     double sigma_eff = evaluate_NH_from_GradRho(P[i].GradRho,P[i].KernelRadius,P[i].DensityAroundParticle,P[i].NumNgb,0,i); if((sigma_eff <= 0)||(isnan(sigma_eff))) {sigma_eff=0;} // sigma here is in code units
     if(star_age <= 0.0025) {f_op=0.09;} else {if(star_age <= 0.006) {f_op=0.09*(1+((star_age-0.0025)/0.004)*((star_age-0.0025)/0.004));} else {f_op=1-0.8410937/(1+sqrt((star_age-0.006)/0.3));}}
     /* note that the metallicity doing attenuation is the -gas- opacity around the star, while here we only know the stellar metallicity,
@@ -327,16 +364,16 @@ int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum)
     SET_ACTIVE_RT_CHECK();
     double f_op=0; if(star_age <= 0.0025) {f_op=0.09;} else {
         if(star_age <= 0.006) {f_op=0.09*(1+((star_age-0.0025)/0.004)*((star_age-0.0025)/0.004));} else {f_op=1-0.8410937/(1+sqrt((star_age-0.006)/0.3));}}
-    lum[RT_FREQ_BIN_OPTICAL_NIR] = f_op * evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR;
+    lum[RT_FREQ_BIN_OPTICAL_NIR] = f_op * L;
 #endif
 
-#if defined(RT_NUV) /* Near-UV approximate spectra (UV/optical spectra, sub-photo-electric, but high-opacity) for stars as used in the FIRE (Hopkins et al.) models */
+#if defined(RT_NUV) && !defined(CLUSTER_SINK) /* Near-UV approximate spectra (UV/optical spectra, sub-photo-electric, but high-opacity) for stars as used in the FIRE (Hopkins et al.) models */
     SET_ACTIVE_RT_CHECK();
 #if !defined(RT_OPTICAL_NIR)
     double f_op=0; if(star_age <= 0.0025) {f_op=0.09;} else {
         if(star_age <= 0.006) {f_op=0.09*(1+((star_age-0.0025)/0.004)*((star_age-0.0025)/0.004));} else {f_op=1-0.8410937/(1+sqrt((star_age-0.006)/0.3));}}
 #endif
-    lum[RT_FREQ_BIN_NUV] = (1-f_op) * evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR;
+    lum[RT_FREQ_BIN_NUV] = (1-f_op) * L;
 #endif
 
 #if defined(RT_PHOTOELECTRIC) /* photo-electric bands (8-13.6 eV, specifically): below is from integrating the spectra from STARBURST99 with the Geneva40 solar-metallicity + lower tracks */
@@ -357,12 +394,25 @@ int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum)
 
 #if defined(RT_CHEM_PHOTOION)   /* Hydrogen and Helium ionizing bands */
     SET_ACTIVE_RT_CHECK();
+#ifdef CLUSTER_SINK
+    double l_ion = particle_ionizing_luminosity_in_cgs(i, j) / UNIT_LUM_IN_CGS; /* calculate ionizing flux based on actual stellar or BH physics */
+#else
     double l_ion = particle_ionizing_luminosity_in_cgs(i) / UNIT_LUM_IN_CGS; /* calculate ionizing flux based on actual stellar or BH physics */
+#endif
     lum[RT_FREQ_BIN_H0] = l_ion; // default to putting everything into a single band //
 #if defined(RT_PHOTOION_MULTIFREQUENCY)
     int i_vec[4] = {RT_FREQ_BIN_H0, RT_FREQ_BIN_He0, RT_FREQ_BIN_He1, RT_FREQ_BIN_He2}; // these will all be the same if not using multi-frequency module //
     int k; for(k=0;k<4;k++) {lum[i_vec[k]] = l_ion * rt_ion_precalc_stellar_luminosity_fraction[i_vec[k]];} // assign flux appropriately according to pre-tabulated result //
 #endif
+#endif
+
+#if defined(RT_NUV) && defined(CLUSTER_SINK)/* Near-UV approximate spectra (UV/optical spectra, sub-photo-electric, but high-opacity) for stars as used in the FIRE (Hopkins et al.) models */
+    SET_ACTIVE_RT_CHECK();
+    double f_nuv = 0;
+    for(int k=0;k<N_RT_FREQ_BINS;k++){
+        if(k!=RT_FREQ_BIN_NUV){ f_nuv += lum[k]/L;}
+    }
+    lum[RT_FREQ_BIN_NUV] = (1-f_nuv) * L;
 #endif
 
 #if defined(RT_HARD_XRAY) || defined(RT_SOFT_XRAY) /* soft and hard X-rays for e.g. Compton heating by X-ray binaries */

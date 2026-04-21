@@ -1011,7 +1011,7 @@ double CoolingRate(double logT,  double rho, double n_elec_guess, double *n_elec
     
 #if defined(COOL_LOW_TEMPERATURES)
     double Tdust = 30.; /* set variables needed for dust heating/cooling. if dust cooling not calculated, default to 0 */
-#if (GALSF_FB_FIRE_STELLAREVOLUTION > 2) || defined(SINGLE_STAR_SINK_DYNAMICS)
+#if (GALSF_FB_FIRE_STELLAREVOLUTION > 2) || defined(SINGLE_STAR_SINK_DYNAMICS) || defined(CLUSTER_SINK)
     Tdust = get_equilibrium_dust_temperature_estimate(target, shieldfac, T);
 #endif
 #if (GALSF_FB_FIRE_STELLAREVOLUTION <= 2) && defined(SINGLE_STAR_SINK_DYNAMICS) && !defined(SINGLE_STAR_FB_RT_HEATING)
@@ -1940,7 +1940,7 @@ void update_explicit_molecular_fraction(int i, double dtime_cgs)
     double b_H2ext = b_H2Hp + b_H2e + b_H2He + b_H2Hep + b_H2Dp; b_H2HI += b_H2D; b_H2ext*=1./2.; b_H2HI*=1./2.; b_H2H2*=1./4.; // collect dissociation terms where the secondary (e.g. e- does -not- scale with fmol as we define it here, and those where it does to different powers; 1/2 here is to account for nH2 = (1/2) * fH2 * nH because we will solve for fH2 as a mass fraction, becomes 1/4 in H2-H2 equation
     
     double Tdust = 30.; // need to assume something about dust temperature for reaction rates below for dust-phase formation
-#if (GALSF_FB_FIRE_STELLAREVOLUTION > 2) || defined(SINGLE_STAR_SINK_DYNAMICS)
+#if (GALSF_FB_FIRE_STELLAREVOLUTION > 2) || defined(SINGLE_STAR_SINK_DYNAMICS) || defined(CLUSTER_SINK)
     Tdust = get_equilibrium_dust_temperature_estimate(i, shieldfac, T);
 #endif
     double a_Z = 3.e-18*sqrt_T / ((1. +4.e-2*sqrt(T+Tdust) +2.e-3*T +8.e-6*T*T )*(1. +1.e4/exp(DMIN(EXPmax,600./Tdust)))) * f_dustgas_solar * nH0 * clumping_factor; // dust surface formation (assuming dust-to-metals ratio is 0.5*(Z/solar)*dust-to-gas-relative-to-solar in all regions where this is significant), from Glover & Jappsen 2007

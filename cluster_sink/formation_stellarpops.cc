@@ -4,9 +4,9 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
-#include "../allvars.h"
-#include "../proto.h"
-#include "../kernel.h"
+#include "../declarations/allvars.h"
+#include "../core/proto.h"
+#include "../mesh/kernel.h"
 
 /* Routines to calculate the formation of several stellar populations within sink particles
  * This file was written by Marta Reina-Campos (reinacampos@mcmaster.ca) for GIZMO.

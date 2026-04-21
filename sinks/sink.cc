@@ -60,6 +60,9 @@ void sink_accretion(void)
      Use the above info to determine the weight functions for feedback
      ----------------------------------------------------------------------*/
     sink_feed_loop();       /* sink mergers and gas/star/dm accretion events are evaluated - P[j].SwallowID's are set */
+# if defined(CLUSTER_SINK) && !defined(CLUSTER_SINK_AVOID_MERGERS)
+    cluster_sink_allocate_merger_loop();
+#endif
     /*----------------------------------------------------------------------
      Now we do a THIRD pass over the particles, and
      this is where we can do the actual 'swallowing' operations
@@ -352,6 +355,11 @@ void set_sink_mdot(int i, int n, double dt)
         AccretionFactor = 1.0; if(rho > All.PhysDensThresh) {AccretionFactor = pow(rho/All.PhysDensThresh, All.SinkAccretionFactor);}
 #endif
         mdot = 4. * M_PI * AccretionFactor * All.G * All.G * P[n].Sink_Mass * P[n].Sink_Mass * rho / fac;
+#ifdef CLUSTER_SINK_DEBUG
+        if (P[i].ID == DEBUG_ID){
+            printf("[DEBUG - mdot] ThisTask %d, P.ID %d - mdot %g, Sink_Mass %g, rho %g, fac %g, soundspeed2 %g, bhvel2 %g, Sink_InternalEnergy %g\n", ThisTask, P[n].ID, mdot, P[n].Sink_Mass, rho, fac, soundspeed2, bhvel2, SinkTempInfo[i].Sink_InternalEnergy);
+        }
+#endif
     } else {mdot=0;}
 #endif
 
@@ -526,6 +534,11 @@ void set_sink_mdot(int i, int n, double dt)
     angmom_toreturn = lmag * DMIN(0.5, dt/return_timescale); // the actual angular momentum we will return this timestep (with a mild limiter so we don't dump it all at once)
     angmom_toreturn = DMIN(angmom_toreturn, 0.1 * All.G * (P[n].Mass+SinkTempInfo[i].Mgas_in_Kernel) * SinkTempInfo[i].Mgas_in_Kernel / DMAX(P[n].KernelRadius, SinkParticle_GravityKernelRadius) * dt); // this limiter explicitly ensures that we never apply a torquing force that is comparable in magnitude to the gravitational force: L < (small fraction) * G Mtot Mgas / R * dt (ie. torque is less than torque needed to change the orbit within an orbital time)
     if(jmag>0 && lmag>0) {SinkTempInfo[i].angmom_norm_topass_in_swallowloop = angmom_toreturn / sqrt(jmag);} /* this should be in units such that, times CODE radius and (code=physical) ang-mom, gives CODE velocity: looks ok at present */
+#endif
+
+
+#ifdef CLUSTER_SINK
+    if (mdot > SinkTempInfo[i].Mgas_in_Kernel/dt) {mdot = SinkTempInfo[i].Mgas_in_Kernel/dt;} // accretion rate per timestep should be smaller than the available mass within the kernel
 #endif
 
     /* alright, now we can FINALLY set the BH accretion rate */
@@ -762,6 +775,89 @@ void sink_final_operations(void)
 #if defined(SINK_RETURN_BFLUX)
             for(k=0;k<3;k++) {P[n].B[k] += SinkTempInfo[i].accreted_B[k];}
 #endif
+
+#ifdef CLUSTER_SINK 
+            double mf = P[n].Mass + SinkTempInfo[i].accreted_Mass;
+            // update the yields as mass-weighed
+            for(int k=0;k<NUM_METAL_SPECIES;k++) {P[n].Metallicity[k] =(P[n].Mass/mf)*P[n].Metallicity[k] + (1./mf)*SinkTempInfo[i].accreted_MetalMass[k];}
+#ifndef CLUSTER_SINK_AVOID_MERGERS
+            int idx_last_msp = -1;
+
+#ifdef CLUSTER_SINK_DEBUG
+            if(P[n].ID == DEBUG_ID){ for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ 
+                    if((SinkTempInfo[i].combined_MSP[k].Mass > 0) || (SinkTempInfo[i].flag_SinkMerger_withMSP > 0))
+                        printf("[DEBUG - sink() - pre changing] ThisTask %d, ID %d, k %d - MSP Mass %g, InitialMass %g, Age %g, Metallicity[0] %g, NumSNII %g, NumSNIa %g\n", 
+                            ThisTask, P[n].ID, k, P[n].MSP[k].Mass, P[n].MSP[k].InitialMass, P[n].MSP[k].Age, P[n].MSP[k].Metallicity[0], P[n].MSP[k].CumNumSNII, P[n].MSP[k].CumNumSNIa);
+            } }
+#endif
+
+            for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ // loop over MSPs
+                if (SinkTempInfo[i].combined_MSP[k].Mass > 0){ // if any MSPs needs to be combined
+
+                    // combined MSPs -- ages and metallicities are mass-weighted
+                    double m0 = P[n].MSP[k].Mass, mf = P[n].MSP[k].Mass + SinkTempInfo[i].combined_MSP[k].Mass;
+                    P[n].MSP[k].Age = (m0/mf)*P[n].MSP[k].Age + (1./mf)*SinkTempInfo[i].combined_MSP[k].Age;
+                    for(int j=0;j<NUM_METAL_SPECIES;j++) {P[n].MSP[k].Metallicity[j] = (m0/mf)*P[n].MSP[k].Metallicity[j] + (1./mf)*SinkTempInfo[i].combined_MSP[k].Metallicity[j];}
+                    P[n].MSP[k].Mass += SinkTempInfo[i].combined_MSP[k].Mass;
+                    P[n].MSP[k].InitialMass += SinkTempInfo[i].combined_MSP[k].InitialMass;
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+                    P[n].MSP[k].CumNumSNe += SinkTempInfo[i].combined_MSP[k].CumNumSNe;
+                    P[n].MSP[k].CumNumSNII += SinkTempInfo[i].combined_MSP[k].CumNumSNII;
+                    P[n].MSP[k].CumNumSNIa += SinkTempInfo[i].combined_MSP[k].CumNumSNIa;
+#endif 
+
+                } else if (P[n].MSP[k].InitialMass == 0) { // find the last entry
+                    idx_last_msp = k;
+                    break;
+                }
+            }
+
+            // loop over the appending arrays from each task
+            if(SinkTempInfo[i].flag_SinkMerger_withMSP > 0){
+                for (int l = 0; l < NTask * CLUSTER_SINK_NUMMSP_ACCRETE; l++){
+                    if (SinkTempInfo[i].append_MSP[l].Mass > 0){ // if we have collected MSPs to append
+
+                        P[n].MSP[idx_last_msp].Mass = SinkTempInfo[i].append_MSP[l].Mass;
+                        P[n].MSP[idx_last_msp].InitialMass = SinkTempInfo[i].append_MSP[l].InitialMass;
+                        P[n].MSP[idx_last_msp].Age = SinkTempInfo[i].append_MSP[l].Age;
+                        for(int j=0;j<NUM_METAL_SPECIES;j++) {P[n].MSP[idx_last_msp].Metallicity[j] = SinkTempInfo[i].append_MSP[l].Metallicity[j];}
+
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+                        P[n].MSP[idx_last_msp].CumNumSNe = SinkTempInfo[i].append_MSP[l].CumNumSNe;
+                        P[n].MSP[idx_last_msp].CumNumSNII = SinkTempInfo[i].append_MSP[l].CumNumSNII;
+                        P[n].MSP[idx_last_msp].CumNumSNIa = SinkTempInfo[i].append_MSP[l].CumNumSNIa;
+#endif 
+
+                        //assert(P[n].MSP[idx_last_msp].Mass > 0); 
+                        //assert(P[n].MSP[idx_last_msp].InitialMass > 0); 
+                        //assert(P[n].MSP[idx_last_msp].Age > 0); 
+                        //for(int j=0;j<NUM_METAL_SPECIES;j++) {assert(P[n].MSP[idx_last_msp].Metallicity[j] > 0);} 
+                        idx_last_msp += 1;   
+                    }
+                    
+                }
+            }
+
+#ifdef CLUSTER_SINK_DEBUG
+            if(P[n].ID == DEBUG_ID){ for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ 
+                    if((SinkTempInfo[i].combined_MSP[k].Mass > 0) || (SinkTempInfo[i].flag_SinkMerger_withMSP > 0))
+                        printf("[DEBUG - sink() - post changing] ThisTask %d, ID %d, k %d - MSP Mass %g, InitialMass %g, Age %g, Metallicity[0] %g, NumSNII %g, NumSNIa %g\n", 
+                            ThisTask, P[n].ID, k, P[n].MSP[k].Mass, P[n].MSP[k].InitialMass, P[n].MSP[k].Age, P[n].MSP[k].Metallicity[0], P[n].MSP[k].CumNumSNII, P[n].MSP[k].CumNumSNIa);
+            } }
+#endif
+
+
+#endif
+
+#if (CLUSTER_SINK_ACCRETION == 1) // accounts for both sink mergers and gas accretion
+            dt = GET_PARTICLE_TIMESTEP_IN_PHYSICAL(n);
+#ifdef SINK_INTERACT_ON_GAS_TIMESTEP
+            dt = P[n].dt_since_last_gas_search;
+#endif
+            P[n].Sink_Mdot = SinkTempInfo[i].accreted_Sink_Mass/dt;
+#endif
+#endif // CLUSTER_SINK
+
             P[n].Mass += SinkTempInfo[i].accreted_Mass;
 #if defined(SINK_SWALLOWGAS) && !defined(SINK_GRAVCAPTURE_GAS)
             P[n].Sink_AccretionDeficit += SinkTempInfo[i].Sink_AccretionDeficit;
@@ -790,6 +886,7 @@ void sink_final_operations(void)
 #ifdef SINK_INTERACT_ON_GAS_TIMESTEP
         dt = P[n].dt_since_last_gas_search;
 #endif
+#ifndef CLUSTER_SINK_ACCRETION
         double dm = P[n].Sink_Mdot * dt;
         double radiation_loss = evaluate_sink_radiative_efficiency(P[n].Sink_Mdot,P[n].Sink_Mass,n) * dm;
         if(radiation_loss > DMIN(P[n].Mass,P[n].Sink_Mass)) radiation_loss = DMIN(P[n].Mass,P[n].Sink_Mass);
@@ -797,6 +894,7 @@ void sink_final_operations(void)
         if(All.SinkRadiativeEfficiency > 0 && All.SinkRadiativeEfficiency < 1 && P[n].ProtoStellarStage != 7) {radiation_loss = 0;} // negligible radiation loss term unless the object is actually a compact relic
 #endif
         P[n].Mass -= radiation_loss; P[n].Sink_Mass -= radiation_loss;
+#endif // ifndef CLUSTER_SINK_ACCRETION
 
 
 #if defined(SINGLE_STAR_TIMESTEPPING)

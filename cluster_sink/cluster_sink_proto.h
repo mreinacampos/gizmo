@@ -14,7 +14,7 @@ double evaluate_stellar_age_Gyr_for_msp(long i, int j);
 struct fb_massloss_for_msp
 {
     double mass_snii, mass_snia, mass_winds;
-} *fb_dm;
+};
 
 void reduce_mass_from_msps(void);
 void calculate_fb_mass_ejected_for_msps(struct fb_massloss_for_msp *fb_dm, int i, int j);

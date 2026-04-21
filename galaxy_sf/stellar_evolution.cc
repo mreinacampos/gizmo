@@ -37,7 +37,11 @@ int is_particle_single_star_eligible(long i)
 
 
 /* return the light-to-mass ratio [in units of Lsun/Msun] of a star or stellar population with a given age; used throughout the code below */
+#ifdef CLUSTER_SINK
+double evaluate_light_to_mass_ratio(double stellar_age_in_gyr, int i, int j)
+#else
 double evaluate_light_to_mass_ratio(double stellar_age_in_gyr, int i)
+#endif
 {
     if(is_particle_single_star_eligible(i)) // SINGLE-STAR VERSION: calculate single-star luminosity (and convert to solar luminosity-to-mass ratio, which this output assumes)
     {
@@ -48,6 +52,16 @@ double evaluate_light_to_mass_ratio(double stellar_age_in_gyr, int i)
     }
     else // STELLAR-POPULATION VERSION: compute integrated mass-to-light ratio of an SSP
     {
+#ifdef CLUSTER_SINK 
+        double lum_ssp = 0;
+#ifdef CLUSTER_SINK_RADIATION 
+        lum_ssp = calculate_relative_light_to_mass_ratio(stellar_age_in_gyr, i, j);
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+        P[i].MSP[j].Light_MassRatio = lum_ssp;
+#endif
+        return lum_ssp;
+#endif 
         double lum=1; if(stellar_age_in_gyr < 0.01) {lum=1000;} // default to a dumb imf-averaged 'young/high-mass' vs 'old/low-mass' distinction
 #ifdef GALSF_FB_FIRE_STELLAREVOLUTION // fit to updated SB99 tracks: including rotation, new mass-loss tracks, etc.
         if(stellar_age_in_gyr < 0.0035) {lum=1136.59;} else {double log_age=log10(stellar_age_in_gyr/0.0035); lum=1500.*pow(10.,-1.8*log_age+0.3*log_age*log_age-0.025*log_age*log_age*log_age);}
@@ -123,7 +137,11 @@ double calculate_relative_light_to_mass_ratio_from_imf(double stellar_age_in_gyr
 
 #if defined(GALSF_FB_FIRE_RT_HIIHEATING) || (defined(RT_CHEM_PHOTOION) && defined(GALSF))
 /* routine to compute the -ionizing- luminosity coming from either individual stars or an SSP */
+#ifdef CLUSTER_SINK
+double particle_ionizing_luminosity_in_cgs(long i, int j)
+#else
 double particle_ionizing_luminosity_in_cgs(long i)
+#endif
 {
     if(P[i].Mass <= 0 || !isfinite(P[i].Mass)) {return 0;}
     if(is_particle_single_star_eligible(i)) /* SINGLE STAR VERSION: use effective temperature as a function of stellar mass and size to get ionizing photon production */
@@ -137,6 +155,13 @@ double particle_ionizing_luminosity_in_cgs(long i)
     }
     else /* STELLAR POPULATION VERSION: use updated SB99 tracks: including rotation, new mass-loss tracks, etc. */
     {
+#if defined(CLUSTER_SINK) && defined(CLUSTER_SINK_RADIATION)
+        double lm_ssp = 0, star_age = evaluate_stellar_age_Gyr_for_msp(i, j);
+        // converts to cgs luminosity [lm_ssp is in Lsun/Msun, here]
+        double f_ion = determine_ionizing_flux_fraction(star_age, i);
+        lm_ssp = f_ion * evaluate_light_to_mass_ratio(star_age, i, j) * SOLAR_LUM_CGS * (P[i].MSP[j].Mass * UNIT_MASS_IN_SOLAR);
+        return lm_ssp;
+#endif
         if(P[i].Type != 5)
         {
             double lm_ssp=0, star_age=evaluate_stellar_age_Gyr(i), t0=0.0035, tmax=0.02;
@@ -186,7 +211,11 @@ void particle2in_addFB_fromstars(struct addFB_evaluate_data_in_ *in, int i, int 
         if(P[i].SNe_ThisTimeStep<1) {double m_msun=P[i].Mass*UNIT_MASS_IN_SOLAR; in->SNe_v_ejecta = (616. * sqrt((1.+0.1125*m_msun)/(1.+0.0125*m_msun)) * pow(m_msun,0.131)) / UNIT_VEL_IN_KMS;} // scaling from size-mass relation+eddington factor, assuming line-driven winds //
     }
 #endif
-#ifdef METALS
+#ifdef CLUSTER_SINK // 
+    set_fb_input_quantities_from_msps(in, i, fb_loop_iteration);
+#endif
+
+#if defined(METALS) && !defined(CLUSTER_SINK)
     int k; for(k=0;k<NUM_METAL_SPECIES;k++) {in->yields[k]=0.178*All.SolarAbundances[k]/All.SolarAbundances[0];} // assume a universal solar-type yield with ~2.63 Msun of metals
     if(NUM_LIVE_SPECIES_FOR_COOLTABLES>=10) {in->yields[1] = 0.4;} // (catch for Helium, which the above scaling would give bad values for)
 #endif
@@ -222,6 +251,11 @@ double mechanical_fb_calculate_eventrates(int i, double dt)
 #endif
         return 1;
     }
+#endif
+
+#if defined(CLUSTER_SINK) && defined(GALSF_FB_MECHANICAL) /* STELLAR-POPULATION + SINK version: mechanical feedback */
+    double RSNe = determine_sne_rates(i, dt); //total SNe rate from all the MSPs within the sink
+    return RSNe;
 #endif
 
 #ifdef GALSF_FB_THERMAL /* STELLAR-POPULATION version: pure thermal feedback: assumes AGORA model (Kim et al., 2016 ApJ, 833, 202) where everything occurs at 5Myr exactly */

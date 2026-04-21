@@ -266,6 +266,12 @@ double get_starformation_rate(int i, int mode)
     alpha_vir = 1./CellP[i].AlphaVirial_SF_TimeSmoothed - 1.; /* use the rolling average below */
 #endif
     if(exceeds_force_softening_threshold) {alpha_vir /= 10.;} /* account for gravitational softening effects here, making this threshold less steep */
+
+#ifdef CLUSTER_SINK_OUTPUT_SFINGPROPS // save the properties of the star-forming gas for later 
+    CellP[i].SFing_AlphaVir = alpha_vir;
+    CellP[i].SFing_VDisp = sqrt(dv2abs);
+#endif
+
 #if (GALSF_SFR_VIRIAL_SCALING == -1)
     if((alpha_vir>alpha_crit) && (CellP[i].Density*All.cf_a3inv<100.*All.PhysDensThresh)) {rateOfSF *= 0.0015;} /* PFH: note the 100x threshold limit here is an arbitrary choice currently set -by hand- to prevent runaway densities from this prescription! */
 #endif
@@ -407,7 +413,7 @@ void star_formation_parent_routine(void)
 {
     int i, bin, flag, stars_spawned, tot_spawned, stars_converted, tot_converted, number_of_stars_generated;
     unsigned int bits; double dtime, mass_of_star, p, prob, rate_in_msunperyear, sfrrate, totsfrrate, sum_sm, total_sm, sm=0, rate, sum_mass_stars, total_sum_mass_stars;
-#if defined(SINK_SEED_FROM_LOCALGAS) || defined(SINGLE_STAR_SINK_DYNAMICS)
+#if defined(SINK_SEED_FROM_LOCALGAS) || defined(SINGLE_STAR_SINK_DYNAMICS) || defined(CLUSTER_SINK)
     int num_sink_formed=0, tot_sink_formed=0;
 #endif
     for(bin = 0; bin < TIMEBINS; bin++) {if(TimeBinActive[bin]) {TimeBinSfr[bin] = 0;}}
@@ -419,6 +425,9 @@ void star_formation_parent_routine(void)
         if((P[i].Type == 0)&&(P[i].Mass>0))
         {
             CellP[i].Sfr = 0; flag = 1; /* will be reset below if flag==0, but default to flag = 1 (non-eligible) */
+#ifdef CLUSTER_SINK_OUTPUT_SFINGPROPS
+            CellP[i].SFing_AlphaVir = 0; CellP[i].SFing_VDisp = 0;
+#endif
             dtime = GET_PARTICLE_TIMESTEP_IN_PHYSICAL(i); /*  the actual time-step */
             
             /* check whether an initial (not fully-complete!) conditions for star formation are fulfilled for a given particle */
@@ -661,6 +670,50 @@ void star_formation_parent_routine(void)
 #endif
                         }
 #endif // SINGLE_STAR_SINK_DYNAMICS
+
+#ifdef CLUSTER_SINK // create first the sink as a gas-only sink (stellar populations will form later)
+                        P[i].Type = 5;
+                        num_sink_formed++;
+                        P[i].Sink_Mass = P[i].Mass; // mass of the sink
+                        P[i].Sink_Mdot = 0; // accretion rate
+                        P[i].Sink_Formation_Mass = P[i].Mass; // initial sink mass 
+
+#ifdef SINK_COUNTPROGS
+                        P[i].Sink_CountProgs = 1;
+#endif
+#ifdef SINK_INTERACT_ON_GAS_TIMESTEP
+                        P[i].dt_since_last_gas_search = 0;
+                        P[i].do_gas_search_this_timestep = 1;
+                        P[i].Sink_TimeBinGasNeighbor = P[i].TimeBin;
+#endif
+
+#if !defined(CLUSTER_SINK_ACCRETION) && defined(CLUSTER_SINK_AVOID_MERGERS) // test case: sinks that won't be able to accrete nor merge
+                        // initialize the properties of the MSPs to have FB
+                        P[i].MSP[0].Mass = P[i].Mass; // mass of the first MSP
+                        P[i].MSP[0].InitialMass = P[i].Mass; // initial mass of the first MSP
+                        P[i].MSP[0].Age = All.Time; // age of the first MSP
+                        // collecting the mass-weighted metallicity of accreted gas
+                        for(int k=0;k<NUM_METAL_SPECIES;k++) {P[i].MSP[0].Metallicity[k] = P[i].Metallicity[k];} 
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_FORMPROPS
+                        // save properties of the natal environment of the sink
+                        double ne=1, nh0=0, nHe0, nHepp, nhp, nHeII, temperature, mu_meanwt=1, rho=CellP[i].Density*All.cf_a3inv, u0=CellP[i].InternalEnergyPred; // pull various known thermal properties, prepare to extract others //
+                        double temp = ThermalProperties(u0, rho, i, &mu_meanwt, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp); // get thermodynamic properties, like neutral fraction, temperature, etc, that we will use below //
+                        double dv2_abs = ((1./2.)*((CellP[i].Gradients.Velocity[1][0]+CellP[i].Gradients.Velocity[0][1])*(CellP[i].Gradients.Velocity[1][0]+CellP[i].Gradients.Velocity[0][1]) // squared norm of the trace-free symmetric [shear] component of the velocity gradient tensor //
+                                                + (CellP[i].Gradients.Velocity[2][0]+CellP[i].Gradients.Velocity[0][2])*(CellP[i].Gradients.Velocity[2][0]+CellP[i].Gradients.Velocity[0][2]) + (CellP[i].Gradients.Velocity[2][1]+CellP[i].Gradients.Velocity[1][2])*(CellP[i].Gradients.Velocity[2][1]+CellP[i].Gradients.Velocity[1][2])) +
+                                        (2./3.)*((CellP[i].Gradients.Velocity[0][0]*CellP[i].Gradients.Velocity[0][0] + CellP[i].Gradients.Velocity[1][1]*CellP[i].Gradients.Velocity[1][1] + CellP[i].Gradients.Velocity[2][2]*CellP[i].Gradients.Velocity[2][2]) - (CellP[i].Gradients.Velocity[1][1]*CellP[i].Gradients.Velocity[2][2] + CellP[i].Gradients.Velocity[0][0]*CellP[i].Gradients.Velocity[1][1] + CellP[i].Gradients.Velocity[0][0]*CellP[i].Gradients.Velocity[2][2]))) * All.cf_a2inv*All.cf_a2inv;
+                        // 0:Time, 1:ID, 2:Mass, 3-5:Position, 6-8:Velocity, 9:Internal energy, 10: temperature, 11:Density, 12: pressure, 13:effective sound speed, 14:particle size, 15:local velocity dispersion, 16: virial parameter, 17: distance to closest BH, 18 - 27: metallicities
+                        fprintf(FdCSFormationDetails,"%.16g %llu %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g\n", 
+                            All.Time, (unsigned long long)P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],  
+                            P[i].Vel[0], P[i].Vel[1],P[i].Vel[2], 
+                            CellP[i].InternalEnergyPred, temp, CellP[i].Density * All.cf_a3inv, CellP[i].Pressure,
+                            Get_Gas_effective_soundspeed_i(i) * All.cf_afac3, 
+                            Get_Particle_Size(i) * All.cf_atime, dv2_abs, CellP[i].SFing_AlphaVir, P[i].min_dist_to_bh,
+                            P[i].Metallicity[0], P[i].Metallicity[1], P[i].Metallicity[2], P[i].Metallicity[3], P[i].Metallicity[4],
+                            P[i].Metallicity[5], P[i].Metallicity[6], P[i].Metallicity[7], P[i].Metallicity[8], P[i].Metallicity[9], P[i].Metallicity[10]); fflush(FdCSFormationDetails);
+#endif
+#endif // closing CLUSTER_SINK
+
                         if(P[i_star].Type != 5) {P[i_star].Type = 4;} // if we didn't set to type 5 above, default to type 4
 
 #ifdef SINK_SEED_FROM_LOCALGAS
@@ -691,7 +744,7 @@ void star_formation_parent_routine(void)
     
     
     
-#if defined(SINK_SEED_FROM_LOCALGAS) || defined(SINGLE_STAR_SINK_DYNAMICS)
+#if defined(SINK_SEED_FROM_LOCALGAS) || defined(SINGLE_STAR_SINK_DYNAMICS) || defined(CLUSTER_SINK)
     MPI_Allreduce(&num_sink_formed, &tot_sink_formed, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if( (ThisTask==0) && (tot_sink_formed > 0) )
     {

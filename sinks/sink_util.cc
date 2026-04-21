@@ -119,6 +119,11 @@ void sink_end(void)
 #endif
 #endif
     }
+# if defined(CLUSTER_SINK) && !defined(CLUSTER_SINK_AVOID_MERGERS)
+    if (N_active_loc_Sink > 0){
+        for(int i=N_active_loc_Sink-1; i>=0; i--){ if(SinkTempInfo[i].flag_SinkMerger_withMSP > 0){myfree(SinkTempInfo[i].append_MSP); SinkTempInfo[i].append_MSP = NULL;}}
+    }
+#endif
     myfree(SinkTempInfo);
 }
 

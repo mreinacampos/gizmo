@@ -437,6 +437,11 @@ extern struct gas_cell_data
 #endif
 #endif
     
+#if defined(CLUSTER_SINK) && defined(CLUSTER_SINK_OUTPUT_SFINGPROPS)
+    MyFloat SFing_AlphaVir; /* virial parameter calculated for SFing gas */
+    MyFloat SFing_VDisp; /* velocidty dispersion calculated for SFing gas */
+#endif 
+
 }
 *CellP,                /*!< holds gas cell data on local processor */
 *DomainGasBuf;            /*!< buffer for gas cell data in domain decomposition */

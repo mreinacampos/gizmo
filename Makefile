@@ -485,7 +485,7 @@ endif
 
 ifeq (CLUSTER_SINK,$(findstring CLUSTER_SINK,$(CONFIGVARS)))
 OBJS    += cluster_sink/feedback_fits.o cluster_sink/formation_stellarpops.o cluster_sink/cluster_sink_util.o
-INCL    += cluster_sink/cluster_sink_proto.h  cluster_sink/feedback_fits.h 
+INCL    +=  cluster_sink/feedback_fits.h 
 endif
 
 # linking libraries (includes machine-dependent options above)

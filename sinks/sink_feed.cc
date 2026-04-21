@@ -95,6 +95,9 @@ struct OUTPUT_STRUCT_NAME
 #ifdef SINK_REPOSITION_ON_POTMIN
     double Sink_PotentialMinimumOfNeighbors, Sink_PotentialMinimumOfNeighborsPos[3];
 #endif
+#ifndef CLUSTER_SINK_AVOID_MERGERS
+    int flag_SinkMerger_withMSP; 
+#endif
 }
 *DATARESULT_NAME, *DATAOUT_NAME; /* dont mess with these names, they get filled-in by your definitions automatically */
 
@@ -109,6 +112,9 @@ static inline void OUTPUTFUNCTION_NAME(struct OUTPUT_STRUCT_NAME *out, int i, in
 #ifdef SINK_REPOSITION_ON_POTMIN
     if(mode==0) {P[i].Sink_PotentialMinimumOfNeighbors=out->Sink_PotentialMinimumOfNeighbors; for(k=0;k<3;k++) {P[i].Sink_PotentialMinimumOfNeighborsPos[k]=out->Sink_PotentialMinimumOfNeighborsPos[k];}
         } else {if(out->Sink_PotentialMinimumOfNeighbors < P[i].Sink_PotentialMinimumOfNeighbors) {P[i].Sink_PotentialMinimumOfNeighbors=out->Sink_PotentialMinimumOfNeighbors; for(k=0;k<3;k++) {P[i].Sink_PotentialMinimumOfNeighborsPos[k]=out->Sink_PotentialMinimumOfNeighborsPos[k];}}}
+#endif
+#ifndef CLUSTER_SINK_AVOID_MERGERS
+    ASSIGN_ADD_PRESET(SinkTempInfo[target].flag_SinkMerger_withMSP, out->flag_SinkMerger_withMSP, mode);
 #endif
 }
 
@@ -200,7 +206,7 @@ int sink_feed_evaluate(int target, int mode, int *exportflag, int *exportnodecou
 #endif
 			
                         
-                        
+#ifndef CLUSTER_SINK_AVOID_MERGERS                        
                         if(P[j].Type == 5)  /* we may have a sink particle merger -- check below if allowed */
                         {
                             if(((local.ID != P[j].ID) || (r2>0)) && (SwallowID_j == 0) && (P[j].Sink_Mass < local.Sink_Mass)) /* we'll assume most massive BH swallows the other - simplifies analysis and ensures unique results */
@@ -235,6 +241,9 @@ int sink_feed_evaluate(int target, int mode, int *exportflag, int *exportnodecou
                                     {
                                         printf(" ..Sink-Sink Merger: P[j.]ID=%llu to be swallowed by id=%llu \n", (unsigned long long) P[j].ID, (unsigned long long) local.ID);
                                         SwallowID_j = local.ID;
+#ifdef CLUSTER_SINK                                        
+                                        if (P[j].MSP[0].InitialMass > 0){out.flag_SinkMerger_withMSP += 1;} // flag it as a merger with possible MSPs to append
+#endif 
                                     } else {
 #if defined(SINK_OUTPUT_MOREINFO)     // DAA: BH merger info will be saved in a separate output file
                                         printf(" ..ThisTask=%d, time=%g: id=%llu would like to swallow %llu, but vrel=%g vesc=%g\n", ThisTask, All.Time, (unsigned long long)local.ID, (unsigned long long)P[j].ID, vrel, vesc);
@@ -245,7 +254,8 @@ int sink_feed_evaluate(int target, int mode, int *exportflag, int *exportnodecou
                                 } // if eligible for bh-bh mergers //
                             } // unique BH, merging from higher (swallowing lower) mass
                         } // type == 5
-                        
+#endif // CLUSTER_SINK_AVOID_MERGERS
+
                         
                         /* This is a similar loop to what we already did in sink_environment, but here we stochastically
                          reduce GRAVCAPT events in order to (statistically) obey the eddington limit */

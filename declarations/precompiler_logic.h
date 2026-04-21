@@ -533,6 +533,41 @@
 
 #endif // SINGLE_STAR_SINK_DYNAMICS
 
+/* set default options for the SCALES (clustered star formation) module */
+#ifdef CLUSTER_SINK
+#ifdef CLUSTER_SINK_DEBUG
+#define DEBUG_ID 30304 
+#endif
+#define GALSF                       // top-level switch for galactic star formation model
+#define COOLING                     // top-level switch to enable radiative cooling and heating
+#define METALS                      // top-level switch to enable tracking metallicities or different heavy elements (with multiple species optional) for gas and stars
+#define SINK_PARTICLES                 // top-level switch for black holes (i.e. sink particles)
+#define SINK_CALC_DISTANCES           // calculate distance to nearest sink in gravity tree
+#define SINK_INTERACT_ON_GAS_TIMESTEP // BH-gas interactions (feedback and accretion) occur with frequency set by the gas timestep
+#define GALSF_FB_MECHANICAL         // explicit algorithm including thermal+kinetic/momentum terms 
+#ifdef CLUSTER_SINK_RADIATION
+#define RT_SOURCE_INJECTION         // inject the luminosity from sources
+#define RT_SOURCES (16+32)          // need to allow sinks to emit */
+#define RT_SPEEDOFLIGHT_REDUCTION  (0.01)   // reduced speed of light -- needed for the M1 runs
+#endif
+
+#define CLUSTER_SINK_NUMMSP 40 // number of multiple stellar populations to allow within sinks
+#define CLUSTER_SINK_NUMMSP_ACCRETE 10 // number of multiple stellar populations to append at the end of the array when merging sinks
+#define CLUSTER_SINK_OUTPUT_MSPPROPS // output properties of the multiple stellar populations by default
+
+#ifdef CLUSTER_SINK_ACCRETION
+#define SINK_SWALLOWGAS           // need to swallow gas [part of sink model]
+#define SINK_WAKEUP_GAS           // wake up all gas cells within interaction radius of the sink 
+#if (CLUSTER_SINK_ACCRETION == 0) // default: adative sink radius, normal Bondi-Hoyle accretion rate
+#define SINK_GRAVACCRETION 10                // use 'normal' Bondi-Hoyle accretion rate
+#endif
+#if (CLUSTER_SINK_ACCRETION == 1) // adative accretion radius, gravitational capture of gas particles (same criteria as mergers)
+#define SINK_GRAVCAPTURE_GAS
+#define SINK_GRAVCAPTURE_FIXEDSINKRADIUS // modify grav capture to Bate-style, fixed (in time) sink radius based on SF neighbor distance, plus angular momentum criterion
+#endif
+#endif
+#endif // closes the settings for SCALES
+
 
 #if (SINGLE_STAR_SINK_FORMATION & 16)
 #ifndef SINGLE_STAR_TIMESTEPPING
@@ -1066,7 +1101,13 @@
 #define NUM_LIVE_SPECIES_FOR_COOLTABLES 0
 #endif
 
-#define NUM_METAL_SPECIES (1+NUM_LIVE_SPECIES_FOR_COOLTABLES+NUM_RPROCESS_SPECIES+NUM_AGE_TRACERS+NUM_STARFORGE_FEEDBACK_TRACERS)
+#if !defined(COOL_METAL_LINES_BY_SPECIES) && (defined(CLUSTER_SINK) && (defined(CLUSTER_SINK_SNII) || defined(CLUSTER_SINK_SNIa) || defined(CLUSTER_SINK_WINDS)))
+#define NUM_CLUSTER_SINK_FEEDBACK_YIELDS 10
+#else
+#define NUM_CLUSTER_SINK_FEEDBACK_YIELDS 0
+#endif
+
+#define NUM_METAL_SPECIES (1+NUM_LIVE_SPECIES_FOR_COOLTABLES+NUM_RPROCESS_SPECIES+NUM_AGE_TRACERS+NUM_STARFORGE_FEEDBACK_TRACERS+NUM_CLUSTER_SINK_FEEDBACK_YIELDS)
 #endif // METALS //
 
 
@@ -1130,6 +1171,7 @@
 
 #ifdef SINK_PARTICLES
 #define SINK_COUNTPROGS /* carries a counter for each BH that gives the total number of seeds that merged into it */
+// MRC - old: #ifndef CLUSTER_SINK_ACCRETION // prevents having a cap on the accretion rate
 #define SINK_ENFORCE_EDDINGTON_LIMIT /* put a hard limit on the maximum accretion rate (set SinkEddingtonFactor>>1 to allow super-eddington) */
 #if defined(SINK_PHOTONMOMENTUM) || defined(RT_SINK_ANGLEWEIGHT_PHOTON_INJECTION)
 #define SINK_CALC_LOCAL_ANGLEWEIGHTS

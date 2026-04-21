@@ -67,6 +67,10 @@
 #include "../cooling/chimes/chimes_proto.h"
 #endif
 
+#ifdef CLUSTER_SINK
+#include "../cluster_sink/cluster_sink_proto.h"
+#endif
+
 /*********************************************************/
 /*  Global variables                                     */
 /*********************************************************/
@@ -336,7 +340,18 @@ extern FILE *FdSinkMergerDetails;
 extern FILE *FdSinkWindDetails;
 #endif
 #endif
-
+#ifdef CLUSTER_SINK // diagnostic outputs for clustered star formation module
+#ifdef CLUSTER_SINK_OUTPUT_FORMPROPS 
+extern FILE *FdCSFormationDetails;
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST 
+extern FILE *FdCSAccretionDetails;
+extern FILE *FdCSMergingDetails;
+#endif
+#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS 
+extern FILE *FdCSFBGasProps;
+#endif
+#endif
 
 extern double DriftTable[DRIFT_TABLE_LENGTH]; /*! table for the cosmological drift factors */
 extern double GravKickTable[DRIFT_TABLE_LENGTH]; /*! table for the cosmological kick factor for gravitational forces */
@@ -966,6 +981,13 @@ extern struct global_data_all_processes
   double Sink_jet_precess_degree;
   double Sink_jet_precess_period;
 #endif
+#ifdef CLUSTER_SINK
+  double ClusterSink_MinGasMass; /* minimum gas mass to form a stellar population out of */
+#ifndef CLUSTER_SINK_AVOID_MERGERS
+  double ClusterSink_Delta_AgeInMyr;   /* age difference (in Myr) to consider joining MSPs */
+  double ClusterSink_Delta_ZZSun;   /* metallicity difference ([Z/ZSun], in dex) to consider joining MSPs */
+#endif
+#endif
 }
 All;
 
@@ -1357,6 +1379,17 @@ enum iofields
   IO_DELAY_TIME_HII,
   IO_MOLECULARFRACTION,
   IO_SHOCKMACHNUM,
+  IO_CLUSTER_SINK_NUMSNE,
+  IO_CLUSTER_SINK_NUMSNII,
+  IO_CLUSTER_SINK_NUMSNIa,
+  IO_CLUSTER_SINK_MLRATIO,
+  IO_CLUSTER_SINK_TOTALLUM,
+  IO_CLUSTER_SINK_ALPHAVIR,
+  IO_CLUSTER_SINK_VDISP,
+  IO_CLUSTER_SINK_MSPPROPS_MASS,
+  IO_CLUSTER_SINK_MSPPROPS_INITIALMASS,
+  IO_CLUSTER_SINK_MSPPROPS_AGE,
+  IO_CLUSTER_SINK_MSPPROPS_METALLICITY,
   IO_LASTENTRY			/* This should be kept - it signals the end of the list */
 };
 
@@ -1508,7 +1541,6 @@ extern struct extNODE
   int Flag;
 }
  *Extnodes, *Extnodes_base;
-
 
 
 #endif  /* ALLVARS_H  - please do not put anything below this line */

@@ -612,7 +612,37 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
             for(n = 0; n < pc; n++) {CellP[offset + n].HeII = *fp++;}
 #endif
             break;
-
+        case IO_CLUSTER_SINK_MSPPROPS_MASS:
+#ifdef CLUSTER_SINK
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].Mass = *fp++;}} // normal read-in
+#endif
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
+#ifdef CLUSTER_SINK
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].InitialMass = *fp++;}} // normal read-in
+#endif
+        case IO_CLUSTER_SINK_MSPPROPS_AGE:
+#ifdef CLUSTER_SINK
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].Age = *fp++;}} // normal read-in
+#endif
+        case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
+#ifdef CLUSTER_SINK
+            for (n = 0; n < pc; n++) { 
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {
+                    for(int l=0;l<NUM_METAL_SPECIES;l++){
+                        P[offset + n].MSP[k].Metallicity[l] = *fp++;}}} // normal read-in
+#endif
+        case IO_CLUSTER_SINK_NUMSNE:
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].CumNumSNe = *fp++;}} // normal read-in
+#endif
+        case IO_CLUSTER_SINK_NUMSNII:
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].CumNumSNII = *fp++;}} // normal read-in
+#endif
+        case IO_CLUSTER_SINK_NUMSNIa:
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].CumNumSNIa = *fp++;}} // normal read-in
+#endif
 
         /* the other input fields (if present) are not needed to define the
              initial conditions of the code */
@@ -683,6 +713,10 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
         case IO_DUSTCHEM_COAG_MASSRATE:
         case IO_DUSTCHEM_SHAT_MASSRATE:
         case IO_MACHNUM:
+        case IO_CLUSTER_SINK_MLRATIO:
+        case IO_CLUSTER_SINK_TOTALLUM:
+        case IO_CLUSTER_SINK_ALPHAVIR:
+        case IO_CLUSTER_SINK_VDISP:
             break;
 
         case IO_LASTENTRY:
