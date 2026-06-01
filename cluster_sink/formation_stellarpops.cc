@@ -55,6 +55,7 @@ void continuous_star_formation_in_sinks(void)
                         for(int k=0;k<NUM_METAL_SPECIES;k++) {P[i].MSP[j].Metallicity[k] = (m0/mf)*P[i].MSP[j].Metallicity[k] + (sp_mass/mf)*P[i].Metallicity[k];}
                         P[i].MSP[j].Mass += sp_mass;
                         P[i].MSP[j].InitialMass += sp_mass;
+                        assert(P[i].MSP[j].Age <= All.Time); // check that no MSP ends up with spurious ages
                         break;
                     } else { continue; } 
                 } else { continue; } }
