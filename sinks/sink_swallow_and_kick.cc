@@ -444,8 +444,8 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                              ThisTask, P[j].ID, P[j].MSP[0].InitialMass, P[j].MSP[0].Mass, P[j].MSP[0].Age, P[j].MSP[0].CumNumSNII, P[j].MSP[0].CumNumSNIa);
 #endif
 
-                            double age_ngb_inmyr = evaluate_stellar_age_Gyr_for_msp(j, k)*1e3; // age of the MSP in Myr
-                            double zh_ngb = P[j].MSP[k].Metallicity[0]; // total metal mass fraction
+                            double age_ngb_inmyr = evaluate_initial_stellar_age_Gyr_for_msp(j, k)*1e3; // initial age of the MSP in Myr
+                            double zh_ngb = P[j].MSP[k].InitialMetallicity_Z; // initial total metal mass fraction
                             int idx_msp_main_sink = -1; // index of the MSP within the main sink to be combined with
                             int idx_msp_to_append = -1; // index of the last MSP within the appending array in the output structure
 
@@ -483,7 +483,6 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                                 out.combined_MSP[idx_msp_main_sink].Mass += P[j].MSP[k].Mass;
                                 out.combined_MSP[idx_msp_main_sink].InitialMass += P[j].MSP[k].InitialMass;
                                 out.combined_MSP[idx_msp_main_sink].Age += P[j].MSP[k].Mass*P[j].MSP[k].Age;
-                                assert(out.combined_MSP[idx_msp_main_sink].Age <= All.Time); // check that no MSP ends up with spurious ages
                                 for(int l=0;l<NUM_METAL_SPECIES;l++){ out.combined_MSP[idx_msp_main_sink].Metallicity[l] += P[j].MSP[k].Mass*P[j].MSP[k].Metallicity[l];}
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE
                                 out.combined_MSP[idx_msp_main_sink].CumNumSNe += P[j].MSP[k].CumNumSNe;
@@ -496,7 +495,6 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                                 out.append_MSP[idx_msp_to_append].Mass = P[j].MSP[k].Mass;
                                 out.append_MSP[idx_msp_to_append].InitialMass = P[j].MSP[k].InitialMass;
                                 out.append_MSP[idx_msp_to_append].Age = P[j].MSP[k].Age;
-                                assert(out.append_MSP[idx_msp_to_append].Age <= All.Time); // check that no MSP ends up with spurious ages
                                 for(int l=0;l<NUM_METAL_SPECIES;l++){ out.append_MSP[idx_msp_to_append].Metallicity[l] = P[j].MSP[k].Metallicity[l];}
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE
                                 out.append_MSP[idx_msp_to_append].CumNumSNe = P[j].MSP[k].CumNumSNe;

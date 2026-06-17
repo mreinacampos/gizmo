@@ -5,8 +5,10 @@ extern struct cluster_sink_multiple_stellar_population
 {
   MyFloat Mass;
   MyFloat Age;
+  MyFloat InitialAge; // needed to determine the new MSPs
   MyFloat InitialMass;
   MyFloat Metallicity[NUM_METAL_SPECIES];
+  MyFloat InitialMetallicity_Z; // needed to determine the new MSPs
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE
   MyFloat CumNumSNe; /* flag that indicates cumulative number of SNe for the particle */
   MyFloat CumNumSNII; /* flag that indicates cumulative number of SNII for the particle */
