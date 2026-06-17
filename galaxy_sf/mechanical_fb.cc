@@ -110,7 +110,7 @@ void determine_where_SNe_occur(void)
         fprintf(FdCSFBGasProps,"%.16g %llu %g %2.16g %2.16g %2.16g %d %d %2.16g %2.16g \n", 
             All.Time, (unsigned long long)P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],  
             num_snii, num_snia, P[i].SNe_ThisTimeStep, 
-            P[i].DensAroundStar * All.cf_a3inv); 
+            P[i].DensityAroundParticle * All.cf_a3inv); 
         fflush(FdCSFBGasProps);
     }
 #endif        
