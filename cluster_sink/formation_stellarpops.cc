@@ -69,7 +69,7 @@ void continuous_star_formation_in_sinks(void)
             break;
         }
 
-        if (j >= CLUSTER_SINK_NUMMSP){printf("[WARNING - formation_stellarpops.c] ThisTask %d, P.ID %d - MISSING MSP Mass %g because array is full\n", ThisTask, P[i].ID, sp_mass);}
+        if (j >= CLUSTER_SINK_NUMMSP){printf("[WARNING - formation_stellarpops.c] ThisTask %d, P.ID %llu - MISSING MSP Mass %g because array is full\n", ThisTask, P[i].ID, sp_mass);}
 
     } // loop over active particles
 }

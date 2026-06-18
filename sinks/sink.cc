@@ -348,16 +348,16 @@ void set_sink_mdot(int i, int n, double dt)
 #if (SINK_GRAVACCRETION == 10)
     bhvel2 = 0;
 #endif
-    double fac = pow(soundspeed2+bhvel2, 1.5);
-    if(fac > 0) {
+    double ratio = pow(soundspeed2+bhvel2, 1.5);
+    if(ratio > 0) {
         double AccretionFactor = All.SinkAccretionFactor;
 #if (SINK_GRAVACCRETION == 11) /* variable-alpha model (Booth&Schaye 2009): now All.SinkAccretionFactor is the slope of the density dependence */
         AccretionFactor = 1.0; if(rho > All.PhysDensThresh) {AccretionFactor = pow(rho/All.PhysDensThresh, All.SinkAccretionFactor);}
 #endif
-        mdot = 4. * M_PI * AccretionFactor * All.G * All.G * P[n].Sink_Mass * P[n].Sink_Mass * rho / fac;
+        mdot = 4. * M_PI * AccretionFactor * All.G * All.G * P[n].Sink_Mass * P[n].Sink_Mass * rho / ratio;
 #ifdef CLUSTER_SINK_DEBUG
         if (P[i].ID == DEBUG_ID){
-            printf("[DEBUG - mdot] ThisTask %d, P.ID %d - mdot %g, Sink_Mass %g, rho %g, fac %g, soundspeed2 %g, bhvel2 %g, Sink_InternalEnergy %g\n", ThisTask, P[n].ID, mdot, P[n].Sink_Mass, rho, fac, soundspeed2, bhvel2, SinkTempInfo[i].Sink_InternalEnergy);
+            printf("[DEBUG - mdot] ThisTask %d, P.ID %d - mdot %g, Sink_Mass %g, rho %g, ratio %g, soundspeed2 %g, bhvel2 %g, Sink_InternalEnergy %g\n", ThisTask, P[n].ID, mdot, P[n].Sink_Mass, rho, ratio, soundspeed2, bhvel2, SinkTempInfo[i].Sink_InternalEnergy);
         }
 #endif
     } else {mdot=0;}

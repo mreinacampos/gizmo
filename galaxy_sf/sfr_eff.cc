@@ -707,8 +707,8 @@ void star_formation_parent_routine(void)
                             All.Time, (unsigned long long)P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],  
                             P[i].Vel[0], P[i].Vel[1],P[i].Vel[2], 
                             CellP[i].InternalEnergyPred, temp, CellP[i].Density * All.cf_a3inv, CellP[i].Pressure,
-                            Get_Gas_effective_soundspeed_i(i) * All.cf_afac3, 
-                            Get_Particle_Size(i) * All.cf_atime, dv2_abs, CellP[i].SFing_AlphaVir, P[i].min_dist_to_bh,
+                            Get_Gas_effective_soundspeed_i(i), 
+                            Get_Particle_Size(i) * All.cf_atime, dv2_abs, CellP[i].SFing_AlphaVir, P[i].Min_Distance_to_Sink,
                             P[i].Metallicity[0], P[i].Metallicity[1], P[i].Metallicity[2], P[i].Metallicity[3], P[i].Metallicity[4],
                             P[i].Metallicity[5], P[i].Metallicity[6], P[i].Metallicity[7], P[i].Metallicity[8], P[i].Metallicity[9], P[i].Metallicity[10]); fflush(FdCSFormationDetails);
 #endif
