@@ -334,10 +334,10 @@ void set_sink_mdot(int i, int n, double dt)
             double sigma_enc = (SinkTempInfo[i].Malt_in_Kernel + P[n].Mass) / (M_PI*rmax_for_accrate*rmax_for_accrate); // effective surface density [total gravitating mass / area]
             mdot *= sigma_enc / (sigma_enc + sigma_crit);
 #endif
-#ifdef OUTPUT_ADDITIONAL_RUNINFO
-            printf(" ..Sink accretion kernel :: mdot %g Norm %g fdisk %g mass_1e8msun %g fgas %g f0 %g mdisk_9 %g rmax_100 %g \n",
-                   mdot,fac,f_disk_for_accrate,sink_mass_units,fgas_for_accrate,f0_for_accrate,mdisk_for_accrate_units,rmax_for_accrate_units);
-#endif
+// MRC #ifdef OUTPUT_ADDITIONAL_RUNINFO
+//            printf(" ..Sink accretion kernel :: mdot %g Norm %g fdisk %g mass_1e8msun %g fgas %g f0 %g mdisk_9 %g rmax_100 %g \n",
+//                   mdot,fac,f_disk_for_accrate,sink_mass_units,fgas_for_accrate,f0_for_accrate,mdisk_for_accrate_units,rmax_for_accrate_units);
+//#endif
         } // if(fgas_for_accrate<=0)
     } // if(SinkTempInfo[i].Mgas_in_Kernel > 0)
     mdot *= All.SinkAccretionFactor; // this is a pure normalization multiplier here
@@ -356,9 +356,7 @@ void set_sink_mdot(int i, int n, double dt)
 #endif
         mdot = 4. * M_PI * AccretionFactor * All.G * All.G * P[n].Sink_Mass * P[n].Sink_Mass * rho / ratio;
 #ifdef CLUSTER_SINK_DEBUG
-        if (P[i].ID == DEBUG_ID){
-            printf("[DEBUG - mdot] ThisTask %d, P.ID %d - mdot %g, Sink_Mass %g, rho %g, ratio %g, soundspeed2 %g, bhvel2 %g, Sink_InternalEnergy %g\n", ThisTask, P[n].ID, mdot, P[n].Sink_Mass, rho, ratio, soundspeed2, bhvel2, SinkTempInfo[i].Sink_InternalEnergy);
-        }
+        printf("[DEBUG - mdot] ThisTask %d, P.ID %d - mdot %g, Sink_Mass %g, rho %g, ratio %g, soundspeed2 %g, bhvel2 %g, Sink_InternalEnergy %g\n", ThisTask, P[n].ID, mdot, P[n].Sink_Mass, rho, ratio, soundspeed2, bhvel2, SinkTempInfo[i].Sink_SurroudingGasInternalEnergy);
 #endif
     } else {mdot=0;}
 #endif
