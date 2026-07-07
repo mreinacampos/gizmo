@@ -1171,8 +1171,9 @@
 
 #ifdef SINK_PARTICLES
 #define SINK_COUNTPROGS /* carries a counter for each BH that gives the total number of seeds that merged into it */
-// MRC - old: #ifndef CLUSTER_SINK_ACCRETION // prevents having a cap on the accretion rate
+#ifndef CLUSTER_SINK_ACCRETION // prevents having a cap on the accretion rate
 #define SINK_ENFORCE_EDDINGTON_LIMIT /* put a hard limit on the maximum accretion rate (set SinkEddingtonFactor>>1 to allow super-eddington) */
+#endif
 #if defined(SINK_PHOTONMOMENTUM) || defined(RT_SINK_ANGLEWEIGHT_PHOTON_INJECTION)
 #define SINK_CALC_LOCAL_ANGLEWEIGHTS
 #endif
