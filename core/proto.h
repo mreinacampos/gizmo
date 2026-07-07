@@ -874,8 +874,11 @@ double report_time(void);
 
 /* on some DEC Alphas, the correct prototype for pow() is missing,
    even when math.h is included ! */
-
+#if defined(__APPLE__) && defined(__aarch64__)
+double pow(double, double);
+#else
 double pow(double, double) noexcept;
+#endif
 
 
 void long_range_init(void);

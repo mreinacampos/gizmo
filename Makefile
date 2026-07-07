@@ -249,12 +249,14 @@ endif
 #----------------------------------------------------------------------------------------------
 # Environment for building GIZMO on a macbook with libraries installed via homebrew. But note
 # that the specific GSL and HDF5 versions are hardcoded here...
+# MRC - updated for Apple Silicon paths
 ifeq ($(SYSTYPE),"MacBookCellar")
 CC       =  mpicc
-CXX      =  mpicxx -std=c++11
+CXX      =  mpicxx -std=c++17
 FC       =  $(CC) #mpifort  ## change this to "mpifort" for packages requiring linking secondary fortran code, currently -only- the helmholtz eos modules do this, so I leave it un-linked for now to save people the compiler headaches
-OPTIMIZE = -O1 -funroll-loops
+OPTIMIZE =  -O3 -g  #-O1 -funroll-loops
 OPTIMIZE += -g -Wall # compiler warnings
+OPTIMIZE += -isysroot $(shell xcrun --show-sdk-path) # needed to pick up the right clang in Apple Silicon
 ifeq (CHIMES,$(findstring CHIMES,$(CONFIGVARS)))
 CXX     = mpic++
 CHIMESINCL = -I/usr/local/include/sundials
@@ -262,12 +264,12 @@ CHIMESLIBS = -L/usr/local/lib -lsundials_cvode -lsundials_nvecserial
 endif
 MKL_INCL = #
 MKL_LIBS = #
-GSL_INCL = -I/opt/homebrew/Cellar/gsl/2.8/include #-I$(PORTINCLUDE)
-GSL_LIBS = -L/opt/homebrew/Cellar/gsl/2.8/lib #-L$(PORTLIB)
-FFTW_INCL= -I/usr/local/include
-FFTW_LIBS= -L/usr/local/lib
-HDF5INCL = -I/opt/homebrew/Cellar/hdf5/1.14.6/include -DH5_USE_16_API  #-I$(PORTINCLUDE) -DH5_USE_16_API
-HDF5LIB  = -L/opt/homebrew/Cellar/hdf5/1.14.6/lib -lhdf5 -lz  #-L$(PORTLIB)
+GSL_INCL = -I/opt/homebrew/opt/gsl/include #-I$(PORTINCLUDE)
+GSL_LIBS = -L/opt/homebrew/opt/gsl/lib #-L$(PORTLIB)
+FFTW_INCL= -I/opt/homebrew/opt/fftw2/include
+FFTW_LIBS= -L/opt/homebrew/opt/fftw2/lib
+HDF5INCL = -I/opt/homebrew/opt/hdf5/include -DH5_USE_16_API  #-I$(PORTINCLUDE) -DH5_USE_16_API
+HDF5LIB  = -L/opt/homebrew/opt/hdf5/lib -lhdf5 -lz  #-L$(PORTLIB)
 MPICHLIB = #
 OPT     += -DDISABLE_ALIGNED_ALLOC -DCHIMES_USE_DOUBLE_PRECISION #
 endif
@@ -511,6 +513,7 @@ ifeq (DOUBLEPRECISION_FFTW,$(findstring DOUBLEPRECISION_FFTW,$(CONFIGVARS)))  # 
   FFTW_LIBNAMES = -lfftw3_mpi -lfftw3 # double-precision libraries
 else
   FFTW_LIBNAMES = -lfftw3f_mpi -lfftw3f # single-precision libraries
+  FFTW_LIBNAMES = -lrfftw_mpi -lfftw_mpi -lrfftw -lfftw # MRC - look for the right libraries
 endif
 endif
 
