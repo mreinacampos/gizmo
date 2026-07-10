@@ -96,8 +96,13 @@ static inline void INPUTFUNCTION_NAME(struct INPUT_STRUCT_NAME *in, int i, int l
 #endif
 #if defined(CLUSTER_SINK) && !defined(CLUSTER_SINK_AVOID_MERGERS)
     for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {
+#ifdef CLUSTER_SINK_DEBUG_INITPROPS
+        in->MSP_AgeInMyr[k] = evaluate_initial_stellar_age_Gyr_for_msp(i, k)*1e3; // in Myr 
+        in->MSP_Metallicity[k] = P[i].MSP[k].InitialMetallicity_Z; // collect only total Z
+#else
         in->MSP_AgeInMyr[k] = evaluate_stellar_age_Gyr_for_msp(i, k)*1e3; // in Myr 
         in->MSP_Metallicity[k] = P[i].MSP[k].Metallicity[0]; // collect only total Z
+#endif
     }
 #endif    
 }
@@ -440,8 +445,8 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                             if(P[j].MSP[k].InitialMass == 0){continue;} // no more MSPs to explore
 
 #ifdef CLUSTER_SINK_DEBUG
-                            printf("[DEBUG - swallow - evaluate] *WE HAVE A MERGER with MSPs!* - ThisTask %d - eating ID %d - MSP[0]: Initial/Current Mass %g %g, Age %g, SNII %g SNIa %g\n",
-                             ThisTask, P[j].ID, P[j].MSP[0].InitialMass, P[j].MSP[0].Mass, P[j].MSP[0].Age, P[j].MSP[0].CumNumSNII, P[j].MSP[0].CumNumSNIa);
+                            printf("[DEBUG - swallow - evaluate] *WE HAVE A MERGER with %d MSPs!* - ThisTask %d - eating ID %d - MSP %d - Initial/Current Mass %g %g, Age %g, SNII %g SNIa %g\n",
+                             num_msps, ThisTask, P[j].ID, k, P[j].MSP[k].InitialMass, P[j].MSP[k].Mass, P[j].MSP[k].Age, P[j].MSP[k].CumNumSNII, P[j].MSP[k].CumNumSNIa);
 #endif
 
 #ifdef CLUSTER_SINK_DEBUG_INITPROPS
@@ -457,7 +462,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                             // should this MSP be combined with any of the existing ones in the main sink?
                             for(int i=0;i<CLUSTER_SINK_NUMMSP;i++){ // loop over the MSPs in the main sink
 #ifdef CLUSTER_SINK_DEBUG
-                                printf("[DEBUG - swallow - evaluate] ThisTask %d - MSP i %d age %g zh %g %g -- ngb ID %d, age ngb %g, age difference %g, zh %g %g zh difference %g - idx_msp_main_sink %d, idx_msp_to_append %d\n",
+                                printf("[DEBUG - swallow - evaluate] ThisTask %d - main sink: MSP i %d age %g zh %g %g -- ngb: ID %d, age ngb %g, age difference %g, zh %g %g zh difference %g - idx_msp_main_sink %d, idx_msp_to_append %d\n",
                                     ThisTask, i, 
                                     local.MSP_AgeInMyr[i], local.MSP_Metallicity[i], local.MSP_Metallicity[i]/All.SolarAbundances[0],
                                     P[j].ID, age_ngb_inmyr, fabs(age_ngb_inmyr - local.MSP_AgeInMyr[i]), 
