@@ -331,12 +331,15 @@
 #CLUSTER_SINK_RADIATION         # add radiation feedback (to be used together with the RT flags) - based on IMF-integrated analytical fits from Hopkins+22
 #CLUSTER_SINK_AVOID_MERGERS     # avoid mergers of sinks
 
+#CLUSTER_SINK_TABULATED_FEEDBACK_SNII   # add feedback output from tables produced by the ARSENAL library 
+
 ## ----------------------------------------------------------------------------------------------------
 # ----- debug options
 ## ----------------------------------------------------------------------------------------------------
 #CLUSTER_SINK_DEBUG             # output additional printing statements throughout the code
 #CLUSTER_SINK_DEBUG_ONESNE      # only allows for the explosion of one SNe
 #CLUSTER_SINK_DEBUG_NOTHERMALLOSS      # avoid the thermal loss during the injection of FB
+#CLUSTER_SINK_DEBUG_INITPROPS      # debug option: use the initial properties of a MSP and the incoming material to decide whether to spawn a new population or not
 
 ## ----------------------------------------------------------------------------------------------------
 # ----- output options
@@ -346,7 +349,6 @@
 #CLUSTER_SINK_OUTPUT_ACCRETION_LENGTH   # output the accretion length of each sink in the snapshots
 #CLUSTER_SINK_OUTPUT_MSPPROPS           # output the initial and current mass, age and metallicity of the multiple stellar populations in the snapshots
 #CLUSTER_SINK_OUTPUT_SFINGPROPS         # output the virial parameter and velocity dispersion calculated for SFing (n > density threshold) gas
-# CLUSTER_SINK_DEBUG_INITPROPS
 
 ####################################################################################################
 # ---- Radiative Cooling & Thermo-Chemistry

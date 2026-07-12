@@ -818,6 +818,8 @@ void sink_final_operations(void)
             if(SinkTempInfo[i].flag_SinkMerger_withMSP > 0){
                 for (int l = 0; l < NTask * CLUSTER_SINK_NUMMSP_ACCRETE; l++){
                     if (SinkTempInfo[i].append_MSP[l].Mass > 0){ // if we have collected MSPs to append
+                        // ensure the index to be used is within the size of the array
+                        assert(idx_last_msp <= CLUSTER_SINK_NUMMSP);
 
                         P[n].MSP[idx_last_msp].Mass = SinkTempInfo[i].append_MSP[l].Mass;
                         P[n].MSP[idx_last_msp].InitialMass = SinkTempInfo[i].append_MSP[l].InitialMass;
@@ -835,13 +837,23 @@ void sink_final_operations(void)
 
                         //assert(P[n].MSP[idx_last_msp].Mass > 0); 
                         //assert(P[n].MSP[idx_last_msp].InitialMass > 0); 
-                        //assert(P[n].MSP[idx_last_msp].Age > 0); 
                         //for(int j=0;j<NUM_METAL_SPECIES;j++) {assert(P[n].MSP[idx_last_msp].Metallicity[j] > 0);} 
                         idx_last_msp += 1;   
                     }
-                    
                 }
             }
+
+            // add a couple of assertions to catch any possible edge cases 
+            for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ // loop over MSPs
+                if (P[n].MSP[k].InitialMass > 0){
+                    assert(P[n].MSP[k].Age <= All.Time); 
+                    assert(P[n].MSP[k].InitialAge <= All.Time); 
+                    assert(P[n].MSP[k].InitialMetallicity_Z <= 1); 
+                    assert(P[n].MSP[k].InitialMetallicity_Z > 0); 
+                }
+            }
+
+
 
 #ifdef CLUSTER_SINK_DEBUG
             if(P[n].ID == DEBUG_ID){ for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ 
