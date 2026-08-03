@@ -797,7 +797,7 @@ void sink_final_operations(void)
                     P[n].MSP[k].Age = (m0/mf)*P[n].MSP[k].Age + (1./mf)*SinkTempInfo[i].combined_MSP[k].Age;
                     assert(P[n].MSP[k].Age <= All.Time); // check that the resulting ages are not spurious
                     for(int j=0;j<NUM_METAL_SPECIES;j++) {
-                        P[n].MSP[k].Metallicity[j] = (m0/mf)*P[n].MSP[k].Metallicity[j] + (1./mf)*BlackholeTempInfo[i].combined_MSP[k].Metallicity[j]; 
+                        P[n].MSP[k].Metallicity[j] = (m0/mf)*P[n].MSP[k].Metallicity[j] + (1./mf)*SinkTempInfo[i].combined_MSP[k].Metallicity[j]; 
                         assert(P[n].MSP[k].Metallicity[j] <= 1); // check that the resulting metallicities are not spurious
                     }
                     P[n].MSP[k].Mass += SinkTempInfo[i].combined_MSP[k].Mass;
