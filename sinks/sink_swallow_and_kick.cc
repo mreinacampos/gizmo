@@ -515,6 +515,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
 
                             // now, get the data of this MSP in the right array (combine vs append)
                             if(idx_msp_main_sink >= 0){ // combine as a mass-weighting
+                                // note - the InitialAge and InitialMetallicity_Z fields do not need to be modified
                                 out.combined_MSP[idx_msp_main_sink].Mass += P[j].MSP[k].Mass;
                                 out.combined_MSP[idx_msp_main_sink].InitialMass += P[j].MSP[k].InitialMass;
                                 out.combined_MSP[idx_msp_main_sink].Age += P[j].MSP[k].Mass*P[j].MSP[k].Age;

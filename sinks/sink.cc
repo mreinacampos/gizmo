@@ -824,20 +824,20 @@ void sink_final_operations(void)
                         P[n].MSP[idx_last_msp].Mass = SinkTempInfo[i].append_MSP[l].Mass;
                         P[n].MSP[idx_last_msp].InitialMass = SinkTempInfo[i].append_MSP[l].InitialMass;
                         P[n].MSP[idx_last_msp].Age = SinkTempInfo[i].append_MSP[l].Age;
-                        assert(P[n].MSP[idx_last_msp].Age <= All.Time); // check that the resulting ages are not spurious
-                        for(int j=0;j<NUM_METAL_SPECIES;j++) {
-                            P[n].MSP[idx_last_msp].Metallicity[j] = SinkTempInfo[i].append_MSP[l].Metallicity[j];
-                            assert(P[n].MSP[k].Metallicity[j] <= 1); // check that the resulting metallicities are not spurious
-                        }
+                        P[n].MSP[idx_last_msp].InitialAge = SinkTempInfo[i].append_MSP[l].InitialAge;
+                        P[n].MSP[idx_last_msp].InitialMetallicity_Z = SinkTempInfo[i].append_MSP[l].InitialMetallicity_Z;
+                        for(int j=0;j<NUM_METAL_SPECIES;j++) { P[n].MSP[idx_last_msp].Metallicity[j] = SinkTempInfo[i].append_MSP[l].Metallicity[j]; }
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE
                         P[n].MSP[idx_last_msp].CumNumSNe = SinkTempInfo[i].append_MSP[l].CumNumSNe;
                         P[n].MSP[idx_last_msp].CumNumSNII = SinkTempInfo[i].append_MSP[l].CumNumSNII;
                         P[n].MSP[idx_last_msp].CumNumSNIa = SinkTempInfo[i].append_MSP[l].CumNumSNIa;
 #endif 
-
-                        //assert(P[n].MSP[idx_last_msp].Mass > 0); 
-                        //assert(P[n].MSP[idx_last_msp].InitialMass > 0); 
-                        //for(int j=0;j<NUM_METAL_SPECIES;j++) {assert(P[n].MSP[idx_last_msp].Metallicity[j] > 0);} 
+#ifdef CLUSTER_SINK_DEBUG
+                        assert(P[n].MSP[idx_last_msp].Age <= All.Time); // check that the resulting ages are not spurious
+                        assert(P[n].MSP[idx_last_msp].Mass > 0); 
+                        assert(P[n].MSP[idx_last_msp].InitialMass > 0); 
+                        for(int j=0;j<NUM_METAL_SPECIES;j++) {assert(P[n].MSP[idx_last_msp].Metallicity[j] > 0);} 
+#endif
                         idx_last_msp += 1;   
                     }
                 }
