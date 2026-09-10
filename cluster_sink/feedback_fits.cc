@@ -46,6 +46,11 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
 
         if (P[i].MSP[j].Mass == 0) continue; // this MSP has no FB to produce
 
+#ifdef CLUSTER_SINK_DEBUG // check there are no spurious cases
+        assert(P[i].MSP[j].Age <= All.Time);
+        for(k=0;k<NUM_METAL_SPECIES;k++) { assert(P[i].MSP[j].Metallicity[k] <= 1);}
+#endif
+
         // determine the age in Myr
         double age = evaluate_stellar_age_Gyr_for_msp(i, j)*1e3, zh;
         // metallicity of the stellar population - zh = 10^[Fe/H] = (N_Fe/N_H)_star / (N_Fe/N_H)_solar

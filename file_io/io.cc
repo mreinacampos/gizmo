@@ -3843,7 +3843,7 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
             break;
         case IO_SINK_FORM_MASS:
             strncpy(label, "SMAS", 4);
-            break;	    
+            break;	   
         case IO_SINKMDOT:
             strncpy(label, "BHMD", 4);
             break;
@@ -4313,10 +4313,7 @@ void get_dataset_name(enum iofields blocknr, char *buf)
             break;
         case IO_SINK_FORM_MASS:
             strcpy(buf, "Sink_InitialMass");
-            break;	
-        case IO_SINK_FORM_MASS:
-            strcpy(buf, "Sink_InitialRh");
-            break;	    
+            break;	   
         case IO_SINKMDOT:
             strcpy(buf, "Sink_Mdot");
             break;
