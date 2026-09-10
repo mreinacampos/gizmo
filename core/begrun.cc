@@ -1978,6 +1978,9 @@ void read_parameter_file(char *fname)
       strcpy(tag[nt], "ClusterSink_MinGasMass");
       addr[nt] = &All.ClusterSink_MinGasMass;
       id[nt++] = REAL;
+      strcpy(tag[nt], "ClusterSink_InitialRh");
+      addr[nt] = &All.ClusterSink_InitialRh;
+      id[nt++] = REAL;
 #ifndef CLUSTER_SINK_AVOID_MERGERS
       strcpy(tag[nt], "ClusterSink_Delta_AgeInMyr");
       addr[nt] = &All.ClusterSink_Delta_AgeInMyr;

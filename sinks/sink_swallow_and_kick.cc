@@ -219,6 +219,7 @@ static inline void OUTPUTFUNCTION_NAME(struct OUTPUT_STRUCT_NAME *out, int i, in
            // MSPs to be appended
             ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[out->ThisTask * k].Mass, out->append_MSP[k].Mass, mode);
             ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[out->ThisTask * k].InitialMass, out->append_MSP[k].InitialMass, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[out->ThisTask * k].InitialRh, out->append_MSP[k].InitialRh, mode);
             ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[out->ThisTask * k].Age, out->append_MSP[k].Age, mode);
             for(int l=0;l<NUM_METAL_SPECIES;l++) {ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[out->ThisTask * k].Metallicity[l], out->append_MSP[k].Metallicity[l], mode);}
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE
@@ -499,6 +500,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
 
                                 out.append_MSP[idx_msp_to_append].Mass = P[j].MSP[k].Mass;
                                 out.append_MSP[idx_msp_to_append].InitialMass = P[j].MSP[k].InitialMass;
+                                out.append_MSP[idx_msp_to_append].InitialRh = P[j].MSP[k].InitialRh;
                                 out.append_MSP[idx_msp_to_append].Age = P[j].MSP[k].Age;
                                 for(int l=0;l<NUM_METAL_SPECIES;l++){ out.append_MSP[idx_msp_to_append].Metallicity[l] = P[j].MSP[k].Metallicity[l];}
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE

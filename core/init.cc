@@ -477,6 +477,7 @@ void init(void)
         {
                 P[i].MSP[0].Mass = P[i].Mass; // mass of the first MSP
                 P[i].MSP[0].InitialMass = P[i].Mass; // initial mass of the first MSP
+                P[i].MSP[0].InitialRh = All.ClusterSink_InitialRh; // set the initial half-mass radius of the MSP to the value in the param file
                 P[i].MSP[0].Age = All.Time; // age of the first MSP
                 for(int k=0;k<NUM_METAL_SPECIES;k++){P[i].MSP[0].Metallicity[k] = P[i].Metallicity[k];} // metallicity of the first MSP
         }

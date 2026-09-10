@@ -7,6 +7,7 @@ extern struct cluster_sink_multiple_stellar_population
   MyFloat Age;
   MyFloat InitialAge; // needed to determine the new MSPs
   MyFloat InitialMass;
+  MyFloat InitialRh; // half-mass radius of the MSP at formation
   MyFloat Metallicity[NUM_METAL_SPECIES];
   MyFloat InitialMetallicity_Z; // needed to determine the new MSPs
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE

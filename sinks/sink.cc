@@ -818,6 +818,7 @@ void sink_final_operations(void)
 
                         P[n].MSP[idx_last_msp].Mass = SinkTempInfo[i].append_MSP[l].Mass;
                         P[n].MSP[idx_last_msp].InitialMass = SinkTempInfo[i].append_MSP[l].InitialMass;
+                        P[n].MSP[idx_last_msp].InitialRh = SinkTempInfo[i].append_MSP[l].InitialRh;
                         P[n].MSP[idx_last_msp].Age = SinkTempInfo[i].append_MSP[l].Age;
                         for(int j=0;j<NUM_METAL_SPECIES;j++) {P[n].MSP[idx_last_msp].Metallicity[j] = SinkTempInfo[i].append_MSP[l].Metallicity[j];}
 

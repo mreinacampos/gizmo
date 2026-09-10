@@ -983,7 +983,8 @@ extern struct global_data_all_processes
 #endif
 #ifdef CLUSTER_SINK
   double ClusterSink_MinGasMass; /* minimum gas mass to form a stellar population out of */
-#ifndef CLUSTER_SINK_AVOID_MERGERS
+  double ClusterSink_InitialRh; /* initial half-mass radius for newly formed MSPs */
+  #ifndef CLUSTER_SINK_AVOID_MERGERS
   double ClusterSink_Delta_AgeInMyr;   /* age difference (in Myr) to consider joining MSPs */
   double ClusterSink_Delta_ZZSun;   /* metallicity difference ([Z/ZSun], in dex) to consider joining MSPs */
 #endif
@@ -1388,6 +1389,7 @@ enum iofields
   IO_CLUSTER_SINK_VDISP,
   IO_CLUSTER_SINK_MSPPROPS_MASS,
   IO_CLUSTER_SINK_MSPPROPS_INITIALMASS,
+  IO_CLUSTER_SINK_MSPPROPS_INITIALRH,
   IO_CLUSTER_SINK_MSPPROPS_AGE,
   IO_CLUSTER_SINK_MSPPROPS_METALLICITY,
   IO_LASTENTRY			/* This should be kept - it signals the end of the list */

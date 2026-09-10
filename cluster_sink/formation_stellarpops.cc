@@ -45,7 +45,7 @@ void continuous_star_formation_in_sinks(void)
         // loop over all the MSPs
         for (j = 0; j<CLUSTER_SINK_NUMMSP; j++){
 
-            if (P[i].MSP[j].InitialMass > 0){ // for every existing MSP - checkrelative its initial age and metallicity
+            if (P[i].MSP[j].InitialMass > 0){ // for every existing MSP - check relative its initial age and metallicity
 #ifdef CLUSTER_SINK_DEBUG_INITPROPS
                 if (evaluate_initial_stellar_age_Gyr_for_msp(i, j)*1e3 < All.ClusterSink_Delta_AgeInMyr){ // if the MSP is younger than set in the param file, add the mass here as a mass-weight
 #else
@@ -69,6 +69,7 @@ void continuous_star_formation_in_sinks(void)
 
             // if no existing MSP is younger than 0.5Myr, create a new one
             P[i].MSP[j].InitialMass = sp_mass;
+            P[i].MSP[j].InitialRh = All.ClusterSink_InitialRh; // set the initial half-mass radius of the MSP to the value in the param file
             P[i].MSP[j].Mass = sp_mass;
             P[i].MSP[j].Age = All.Time; // scale factor or time - needs to be evaluated with evaluate_stellar_age_Gyr_for_msp(i, j)
             P[i].MSP[j].InitialAge = All.Time; // scale factor or time - needs to be evaluated with evaluate_stellar_age_Gyr_for_msp(i, j)

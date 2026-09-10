@@ -620,6 +620,10 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef CLUSTER_SINK
             for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].InitialMass = *fp++;}} // normal read-in
 #endif
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
+#ifdef CLUSTER_SINK
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].InitialRh = *fp++;}} // normal read-in
+#endif
         case IO_CLUSTER_SINK_MSPPROPS_AGE:
 #ifdef CLUSTER_SINK
             for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].Age = *fp++;}} // normal read-in
