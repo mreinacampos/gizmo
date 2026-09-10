@@ -479,7 +479,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
 
                             // should this MSP be combined with any of the existing ones in the main sink?
                             for(int i=0;i<CLUSTER_SINK_NUMMSP;i++){ // loop over the MSPs in the main sink
-                                // MRC - unclear if this helps if((local.MSP_AgeInMyr[i] == All.Time)&&(local.MSP_Metallicity[i] == 0)){continue;}; //this population has not been initialized yet
+                                if((local.MSP_AgeInMyr[i] == All.Time)&&(local.MSP_Metallicity[i] == 0)){continue;}; //this population has not been initialized yet
 
 #ifdef CLUSTER_SINK_DEBUG
                                 if(ThisTask==37){
@@ -527,7 +527,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                                 out.combined_MSP[idx_msp_main_sink].CumNumSNIa += P[j].MSP[k].CumNumSNIa;
 #endif
                             } else if((idx_msp_main_sink < 0) && (idx_msp_to_append >= 0)){ // will be appended to the end of the array
-                                if(idx_msp_to_append > CLUSTER_SINK_NUMMSP_ACCRETE){terminate("Trying to accrete more MSPs than we have space for");}
+                                if(idx_msp_to_append >= CLUSTER_SINK_NUMMSP_ACCRETE){terminate("Trying to accrete more MSPs than we have space for");}
 
                                 out.append_MSP[idx_msp_to_append].Mass = P[j].MSP[k].Mass;
                                 out.append_MSP[idx_msp_to_append].InitialMass = P[j].MSP[k].InitialMass;
