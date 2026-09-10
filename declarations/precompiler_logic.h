@@ -559,7 +559,7 @@
 #define SINK_SWALLOWGAS           // need to swallow gas [part of sink model]
 #define SINK_WAKEUP_GAS           // wake up all gas cells within interaction radius of the sink 
 #if (CLUSTER_SINK_ACCRETION == 0) // default: adative sink radius, normal Bondi-Hoyle accretion rate
-#define SINK_GRAVACCRETION 10                // use 'normal' Bondi-Hoyle accretion rate
+#define SINK_GRAVACCRETION 9                // use 'normal' Bondi-Hoyle accretion rate
 #endif
 #if (CLUSTER_SINK_ACCRETION == 1) // adative accretion radius, gravitational capture of gas particles (same criteria as mergers)
 #define SINK_GRAVCAPTURE_GAS
