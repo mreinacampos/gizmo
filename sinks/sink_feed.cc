@@ -236,7 +236,11 @@ int sink_feed_evaluate(int target, int mode, int *exportflag, int *exportnodecou
                                 if(P[j].Mass > max_mmerge) {allow_sink_merger = 0;} // beyond max mass (default few cells)
                                 if(allow_sink_merger == 1) /* ok only if meet all the criteria above are we allowed to consider a BH-BH merger */
 #endif
+#ifdef CLUSTER_SINK
+                                if(sink_check_boundedness(j,vrel,vesc,r,sink_radius)) // only those meeting the boundedness check can merge
+#endif
                                 {
+
                                     if(vrel < vesc)
                                     {
                                         printf(" ..Sink-Sink Merger: P[j.]ID=%llu to be swallowed by id=%llu \n", (unsigned long long) P[j].ID, (unsigned long long) local.ID);
