@@ -102,18 +102,18 @@ void determine_where_SNe_occur(void)
         if(P[i].SNe_ThisTimeStep>0) {ntotal+=P[i].SNe_ThisTimeStep; nhosttotal++;}
         dtmean += dt;
 
-#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS
-    if ((P[i].SNe_ThisTimeStep >= 1.)||((All.Time - (All.TimeLastStatistics - All.TimeBetStatistics)) >= All.TimeBetStatistics)){ // output FB gas properties every SNe or when statistics are output//
-        int num_snia = 0, num_snii = 0;
-        for(int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ if (P[i].MSP[j].Mass > 0) { num_snia += P[i].SNIa_ThisTimeStep[j]; num_snii += P[i].SNII_ThisTimeStep[j];} }
-        // 0: Time, 1: ID, 2: Mass, 3-5: Pos, 6: total number of SNII, 7: total number of SNIa, 8: total number of SNe, 9: density within the kernel, 10: 
-        fprintf(FdCSFBGasProps,"%.16g %llu %g %2.16g %2.16g %2.16g %d %d %2.16g %2.16g \n", 
-            All.Time, (unsigned long long)P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],  
-            num_snii, num_snia, P[i].SNe_ThisTimeStep, 
-            P[i].DensityAroundParticle * All.cf_a3inv); 
-        fflush(FdCSFBGasProps);
-    }
-#endif        
+//#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS - MRC
+//    if ((P[i].SNe_ThisTimeStep >= 0.2)){ // output FB gas properties every SNe or when statistics are output//
+//        int num_snia = 0, num_snii = 0;
+//        for(int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ if (P[i].MSP[j].Mass > 0) { num_snia += P[i].SNIa_ThisTimeStep[j]; num_snii += P[i].SNII_ThisTimeStep[j];} }
+//        // 0: Time, 1: ID, 2: Mass, 3-5: Pos, 6: total number of SNII, 7: total number of SNIa, 8: total number of SNe, 9: density within the kernel, 10: 
+//        fprintf(FdCSFBGasProps,"%.16g %llu %g %2.16g %2.16g %2.16g %d %d %2.16g %2.16g \n", 
+//            All.Time, (unsigned long long)P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],  
+//            num_snii, num_snia, P[i].SNe_ThisTimeStep, 
+//            P[i].DensityAroundParticle * All.cf_a3inv); 
+//        fflush(FdCSFBGasProps);
+//    }
+//#endif        
 
     } // for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i]) //
 
@@ -749,6 +749,11 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 Mass_j += dM_ejecta_in;
                 out.M_coupled += dM_ejecta_in;
                 
+#ifdef CLUSTER_SINK_DEBUG
+                // print the weights, and mass injected per cell
+                printf("[DEBUG - weights] ThisTask %d, ngb %d - local.Msne %g, pnorm %g, dM_ejecta_in %g, mj_preshock %g, massratio_ejecta %g - yields [0] %g - Metallicity pre/post [0] [%g %g]",
+                     ThisTask, j, local.Msne, pnorm, dM_ejecta_in, mj_preshock, massratio_ejecta, local.yields[0], Metallicity_j[0], (1-massratio_ejecta)*Metallicity_j[0] + massratio_ejecta*local.yields[0]);
+#endif
 #ifdef METALS   /* inject metals */
                 for(k=0;k<NUM_METAL_SPECIES-NUM_AGE_TRACERS;k++) {Metallicity_j[k]=(1-massratio_ejecta)*Metallicity_j[k] + massratio_ejecta*local.yields[k];}
                 if(NUM_ADDITIONAL_PASSIVESCALAR_SPECIES_FOR_YIELDS_AND_DIFFUSION>0 && loop_iteration < 2) {
@@ -850,6 +855,11 @@ void verify_and_assign_local_mechfb_integrals(void)
 #endif
             double mf=m0+dm; /* save for below */
             for(k=0;k<NUM_METAL_SPECIES;k++) {P[j].Metallicity[k] = (m0/mf)*P[j].Metallicity[k] + (1./mf)*LocalGasMechFBInfoTemp[j].Z_injected[k];} /* update metallicity */
+#ifdef CLUSTER_SINK_DEBUG
+        int k = 0;
+        printf("[DEBUG - verify_and_assign_local_mechfb_integrals - yields] - ThisTask %d, P[j].ID %d - yield k %d - mass: previous %g, current  %g, delta  %g - metal mass - previous %g, current %g, delta %g\n",
+            ThisTask,P[j].ID,k,  m0, mf, mf-m0, m0*P[j].Metallicity[k], m0*P[j].Metallicity[k]+LocalGasMechFBInfoTemp[j].Z_injected[k], LocalGasMechFBInfoTemp[j].Z_injected[k]);    
+#endif
 #if defined(GALSF_ISMDUSTCHEM_MODEL)
             update_ISMDustChem_after_mechanical_injection(j, LocalGasMechFBInfoTemp[j].Mass_Where_Dust_Shocked, m0, mf, LocalGasMechFBInfoTemp[j].Z_injected); /* update dust chemistry quantities */
 #endif
