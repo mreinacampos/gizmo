@@ -507,7 +507,8 @@ double determine_winds_mass_loss_rate(double age, double zh)
         mass_loss = WINDS_coeff_awj[2] * pow(age / WINDS_twj[2], slope);
     }
 
-    mass_loss += WINDS_coeff_aaj[0] * pow(WINDS_twj[3]/age , 1.6) * (exp(-pow(WINDS_twj[3]/age, 6)) + 1/(1/WINDS_coeff_aaj[1] + pow(WINDS_twj[3]/age , 2)));
+    double x_age = WINDS_twj[3]/DMIN(age, 1e-4); // set a floor to avoid NaNs
+    mass_loss += WINDS_coeff_aaj[0] * pow(x_age, 1.6) * (exp(-DMIN(50, pow(x_age, 6))) + 1/(1/WINDS_coeff_aaj[1] + pow(x_age, 2)));
 
     // return mass_loss in Myr^-1
     return mass_loss*1e-3;
