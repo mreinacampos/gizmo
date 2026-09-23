@@ -711,7 +711,8 @@ void star_formation_parent_routine(void)
                             Get_Gas_effective_soundspeed_i(i), 
                             Get_Particle_Size(i) * All.cf_atime, dv2_abs, CellP[i].SFing_AlphaVir, P[i].Min_Distance_to_Sink,
                             P[i].Metallicity[0], P[i].Metallicity[1], P[i].Metallicity[2], P[i].Metallicity[3], P[i].Metallicity[4],
-                            P[i].Metallicity[5], P[i].Metallicity[6], P[i].Metallicity[7], P[i].Metallicity[8], P[i].Metallicity[9], P[i].Metallicity[10]); fflush(FdCSFormationDetails);
+                            P[i].Metallicity[5], P[i].Metallicity[6], P[i].Metallicity[7], P[i].Metallicity[8], P[i].Metallicity[9], P[i].Metallicity[10]); 
+                        fflush(FdCSFormationDetails);
 #endif
 #endif // closing CLUSTER_SINK
 
