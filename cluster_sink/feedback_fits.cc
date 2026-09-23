@@ -492,7 +492,7 @@ double determine_winds_mass_loss_rate(double age, double zh)
 
     double mass_loss = 0., slope = 0.;
     // power-law analytical fit - eq. 4 in Hopkins+22
-    if(age < WINDS_twj[0]){ mass_loss = WINDS_coeff_awj[0]; }
+    if(age <= WINDS_twj[0]){ mass_loss = WINDS_coeff_awj[0]; }
     else if((age > WINDS_twj[0]) && (age <= WINDS_twj[1])){
         slope = log(WINDS_coeff_awj[1]/WINDS_coeff_awj[0])/log(WINDS_twj[1]/WINDS_twj[0]);
         mass_loss = WINDS_coeff_awj[0] * pow(age / WINDS_twj[0], slope);
