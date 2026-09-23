@@ -74,7 +74,10 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
 #ifdef METALS
         // yields ejected: as ejecta masses
         double total_z = 0.;
-        for(k=1;k<NUM_METAL_SPECIES;k++) { yields_snii[k] += fb_dm.mass_snii*determine_snii_yields(k, age); total_z += determine_snii_yields(k, age); assert(yields_snii[k] >= 0);}
+        for(k=1;k<NUM_METAL_SPECIES;k++) { 
+            yields_snii[k] += fb_dm.mass_snii*determine_snii_yields(k, age); 
+            if (k > 1) total_z += determine_snii_yields(k, age); // He is not included in the total metallicity
+            assert(yields_snii[k] >= 0);}
         yields_snii[0] = fb_dm.mass_snii*1.02*total_z; // from App. A in Hopkins+18
         //yields_snii[0] = DMAX(1.02*total_z, P[i].Metallicity[0]*P[i].MSP_Mass[j]/mass_snii); // from App. A in Hopkins+18
 #endif
@@ -104,7 +107,7 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
         double total_z_winds = 0.;
         for(k=1;k<NUM_METAL_SPECIES;k++) { 
             yields_winds[k] += fb_dm.mass_winds*determine_winds_yields(i, j, age, k); 
-            total_z_winds += determine_winds_yields(i, j, age, k); 
+            if (k > 1) total_z_winds += determine_winds_yields(i, j, age, k); // He is not included in the total metallicity
             assert(yields_winds[k] >= 0);
         }
         yields_winds[0] = fb_dm.mass_winds*total_z_winds; // the total metal mass fraction needs to be recalculated for the winds, since the yields are metallicity dependent
@@ -509,7 +512,6 @@ double determine_winds_mass_loss_rate(double age, double zh)
     // return mass_loss in Myr^-1
     return mass_loss*1e-3;
 }
-*/
 
 /** \brief Return the injection velocity from AGB&OB winds for a given star particle 
  * using the tables in feedback_fits.h
@@ -671,7 +673,7 @@ double determine_winds_yields(int i, int j, double age, int k)
     // initial hydrogen abundance: 1 - f_He,0 - f_Z,0
     f_h0 = 1 - P[i].MSP[j].Metallicity[1] - P[i].MSP[j].Metallicity[0];
 
-    // assume initial surface abundances for total metallicity and heavy elements
+    // assume initial surface abundances for heavy elements
     if (k == 1) { // He
         yield = P[i].MSP[j].Metallicity[1] * (1 - y_HeC) + y_HHe * f_h0;
     } else if (k == 2) { // C
@@ -681,6 +683,8 @@ double determine_winds_yields(int i, int j, double age, int k)
     } else if (k == 4) { // O
         yield = P[i].MSP[j].Metallicity[4] * (1 - y_ON);
     } else if (k > 4) { yield = P[i].MSP[j].Metallicity[k]; }
+    assert(yield >= 0);
+    assert(yield <= 1);
     return yield;
 }
 #endif // CLUSTER_SINK_WINDS
