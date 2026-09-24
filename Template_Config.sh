@@ -340,6 +340,7 @@
 #CLUSTER_SINK_DEBUG_ONESNE      # only allows for the explosion of one SNe
 #CLUSTER_SINK_DEBUG_NOTHERMALLOSS      # avoid the thermal loss during the injection of FB
 #CLUSTER_SINK_DEBUG_INITPROPS      # debug option: use the initial properties of a MSP and the incoming material to decide whether to spawn a new population or not
+#CLUSTER_SINK_DEBUG_STARBOX     # debug option: create a single MSP in star-in-a-box tests
 
 ## ----------------------------------------------------------------------------------------------------
 # ----- output options

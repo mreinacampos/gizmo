@@ -751,7 +751,7 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 
 #ifdef CLUSTER_SINK_DEBUG
                 // print the weights, and mass injected per cell
-                printf("[DEBUG - weights] ThisTask %d, ngb %d - local.Msne %g, pnorm %g, dM_ejecta_in %g, mj_preshock %g, massratio_ejecta %g - yields [0] %g - Metallicity pre/post [0] [%g %g]",
+                printf("[DEBUG - weights] ThisTask %d, ngb %d - local.Msne %g, pnorm %g, dM_ejecta_in %g, mj_preshock %g, massratio_ejecta %g - yields [0] %g - Metallicity pre/post [0] [%g %g]\n",
                      ThisTask, j, local.Msne, pnorm, dM_ejecta_in, mj_preshock, massratio_ejecta, local.yields[0], Metallicity_j[0], (1-massratio_ejecta)*Metallicity_j[0] + massratio_ejecta*local.yields[0]);
 #endif
 #ifdef METALS   /* inject metals */

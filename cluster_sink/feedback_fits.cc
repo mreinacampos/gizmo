@@ -114,7 +114,7 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
 #endif
 #endif
 #ifdef CLUSTER_SINK_DEBUG
-        if (P[i].ID == DEBUG_ID){
+        if ((P[i].ID == DEBUG_ID) && (j == 0)){
             printf("[DEBUG - set_fb_input_quantities_from_msps] - ThisTask %d, P[i].ID %d, P.Mass %g, P.Age %g - MSP j %d - Age %g, MSP_Mass %g tform %g - mass_snii %g, mass_snia %g, mass_winds %g -- Current NumSNe [%g, %g, %g]\n", ThisTask,
          P[i].ID, P[i].Mass, evaluate_stellar_age_Gyr(i)*1e3, j, age, P[i].MSP[j].Mass, P[i].MSP[j].Age, fb_dm.mass_snii, fb_dm.mass_snia, fb_dm.mass_winds, P[i].SNe_ThisTimeStep, P[i].SNII_ThisTimeStep[j], P[i].SNIa_ThisTimeStep[j]); 
         }
@@ -507,7 +507,7 @@ double determine_winds_mass_loss_rate(double age, double zh)
         mass_loss = WINDS_coeff_awj[2] * pow(age / WINDS_twj[2], slope);
     }
 
-    double x_age = WINDS_twj[3]/DMIN(age, 1e-4); // set a floor to avoid NaNs
+    double x_age = WINDS_twj[3]/DMAX(age, 1e-4); // set a floor to avoid NaNs
     mass_loss += WINDS_coeff_aaj[0] * pow(x_age, 1.6) * (exp(-DMIN(50, pow(x_age, 6))) + 1/(1/WINDS_coeff_aaj[1] + pow(x_age, 2)));
 
     // return mass_loss in Myr^-1

@@ -739,7 +739,7 @@ void open_outputfiles(void)
     fprintf(FdCSMergingDetails,"%s   (8) Mass of the secondary sink [code units] \n",prefix_char);
     fprintf(FdCSMergingDetails,"%s   (9, 10, 11) Distance (in x,y,z) between the primary and secondary sinks [code units] \n",prefix_char);
     fprintf(FdCSMergingDetails,"%s   (12, 13, 14) Velocity difference (in x,y,z) between the primary and secondary sinks [code units] \n",prefix_char);
-    fprintf(FdCSMergingDetails,"%s   (15-24) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+    fprintf(FdCSMergingDetails,"%s   (15-24) Metallicities [mass fractions] \n",prefix_char); // MRC - check: mass fractions?
 }
 #endif
 #ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS
@@ -750,11 +750,17 @@ void open_outputfiles(void)
     fprintf(FdCSFBGasProps,"%s   (1) Simulation time [code units] \n",prefix_char);
     fprintf(FdCSFBGasProps,"%s   (2) Particle ID of the sink \n",prefix_char);
     fprintf(FdCSFBGasProps,"%s   (3) Mass of the sink [code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (4,5,6) Coordinate (x,y,z) position of the sink [code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (7) Total number of SNII \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (8) Total number of SNIa \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (9) Total number of SNe \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (10) Density within the kernel [physical code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (4) Age of the sink [Myr] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (5,6,7) Coordinate (x,y,z) position of the sink [code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (8) Number of SNII \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (9) Number of SNIa \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (10) Number of SNe \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (11) Density within the kernel [physical code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (12-14) Total mass ejected by SNII, SNIa and winds [code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (15-17) Total energy ejected by SNII, SNIa and winds [code units] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (18-28) Yields ejected by SNII [mass fractions] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (29-39) Yields ejected by SNIa [mass fractions] \n",prefix_char);
+    fprintf(FdCSFBGasProps,"%s   (40-50) Yields ejected by winds [mass fractions] \n",prefix_char);
 }
 #endif
 #endif
