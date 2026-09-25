@@ -536,7 +536,7 @@
 /* set default options for the SCALES (clustered star formation) module */
 #ifdef CLUSTER_SINK
 #ifdef CLUSTER_SINK_DEBUG
-#define DEBUG_ID 30304 
+#define DEBUG_ID 51324 
 #endif
 #define GALSF                       // top-level switch for galactic star formation model
 #define COOLING                     // top-level switch to enable radiative cooling and heating
