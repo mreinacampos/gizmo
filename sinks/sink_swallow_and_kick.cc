@@ -223,6 +223,7 @@ static inline void OUTPUTFUNCTION_NAME(struct OUTPUT_STRUCT_NAME *out, int i, in
         for(k=0;k<CLUSTER_SINK_NUMMSP_ACCRETE;k++){ // loop over MSPs in the ngb
            // MSPs to be appended
             int idx = out->ThisTask * CLUSTER_SINK_NUMMSP_ACCRETE + k;
+            // these quantities are not normalised yet, that will happen later on
             ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].Mass, out->append_MSP[k].Mass, mode);
             ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].InitialMass, out->append_MSP[k].InitialMass, mode);
             ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].InitialRh, out->append_MSP[k].InitialRh, mode);

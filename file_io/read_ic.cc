@@ -647,7 +647,14 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef CLUSTER_SINK_OUTPUT_NUMSNE
             for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].CumNumSNIa = *fp++;}} // normal read-in
 #endif
-
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+#ifdef CLUSTER_SINK
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].InitialAge = *fp++;}} // normal read-in
+#endif
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+#ifdef CLUSTER_SINK
+            for (n = 0; n < pc; n++) { for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {P[offset + n].MSP[k].InitialMetallicity_Z = *fp++;}} // normal read-in
+#endif
         /* the other input fields (if present) are not needed to define the
              initial conditions of the code */
 

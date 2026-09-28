@@ -207,7 +207,7 @@ void calculate_fb_mass_ejected_for_msps(struct fb_massloss_for_msp *fb_dm, int i
     dt = P[i].dt_since_last_gas_search * UNIT_TIME_IN_MYR;
 #endif
     // total mass ejected by winds in code units 
-    fb_dm->mass_winds = determine_winds_mass_loss_rate(age, zh)/UNIT_MASS_IN_SOLAR * P[i].MSP[j].Mass * dt; 
+    fb_dm->mass_winds = determine_winds_mass_loss_rate(age, zh) * P[i].MSP[j].Mass * dt; 
     assert(fb_dm->mass_winds >= 0); 
     assert(determine_winds_mass_loss_rate(age, zh) >= 0);
     assert(dt >=0 );
@@ -231,7 +231,10 @@ void reduce_mass_from_msps(void)
     // loop over all active particles //
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        if((P[i].Type!=4)&&(P[i].Type!=5)) {continue;} // has this sink output feedback in this timestep?
+        // future: maybe converts sinks to PartType 4
+        // if((P[i].Type!=4)&&(P[i].Type!=5)) {continue;} // has this sink output feedback in this timestep?
+        if(P[i].Type!=5) {continue;} // has this sink output feedback in this timestep?
+
 #ifdef SINK_INTERACT_ON_GAS_TIMESTEP
         if(P[i].Type == 5 && !P[i].do_gas_search_this_timestep) {continue;}
 #endif
@@ -332,7 +335,7 @@ double determine_sne_rates(int i, double dt)
         P[i].SNe_ThisTimeStep += P[i].SNII_ThisTimeStep[j] + P[i].SNIa_ThisTimeStep[j]; 
 #ifdef CLUSTER_SINK_DEBUG_ONESNE
         // debug: only one SNe
-        if (P[i].MSP[j].CumNumSNe > 0){ P[i].SNe_ThisTimeStep[j] = 0; RSNe = 0; }
+        if (P[i].MSP[j].CumNumSNe > 0){ P[i].SNe_ThisTimeStep = 0; RSNe = 0; }
 #endif
 
 #ifdef CLUSTER_SINK_WINDS 

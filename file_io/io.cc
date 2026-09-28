@@ -1972,6 +1972,28 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
 #endif
         break;
 
+    case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].InitialAge;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+    case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].InitialMetallicity_Z;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
 
         case IO_LASTENTRY:
             endrun(213);
@@ -2311,6 +2333,8 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
         case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
         case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
         case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
 #ifdef CLUSTER_SINK
             if(mode)
                 bytes_per_blockelement = (CLUSTER_SINK_NUMMSP) * sizeof(MyInputFloat);
@@ -2624,6 +2648,8 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
         case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
         case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
 #ifdef CLUSTER_SINK
             values = CLUSTER_SINK_NUMMSP;
 #endif
@@ -2845,6 +2871,8 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
         case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
         case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
         case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
             for(i = 0; i < 6; i++) {if((i != 4) && (i != 5)) {typelist[i] = 0;}}
             return nstars + header.npart[5];
@@ -3566,6 +3594,8 @@ int blockpresent(enum iofields blocknr)
         case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
         case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
         case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
         case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
 #ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
             return 1;
@@ -4018,6 +4048,12 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
         case IO_CLUSTER_SINK_MSPPROPS_AGE:
             strncpy(label, "mspa", 4);
             break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+            strncpy(label, "msia", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+            strncpy(label, "msiz", 4);
+            break;
         case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
             strncpy(label, "mspz", 4);
             break;
@@ -4468,6 +4504,12 @@ void get_dataset_name(enum iofields blocknr, char *buf)
             strcpy(buf, "ClusterSink_MSPs_InitialRh");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_AGE:
+            strcpy(buf, "ClusterSink_MSPs_Age");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+            strcpy(buf, "ClusterSink_MSPs_Age");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
             strcpy(buf, "ClusterSink_MSPs_Age");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
