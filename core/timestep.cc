@@ -954,14 +954,14 @@ integertime get_timestep(int p,		/*!< particle index */
 #ifdef SINK_PARTICLES
     if(P[p].Type == 5)
     {
-#if !defined(SINGLE_STAR_SINK_DYNAMICS) && defined(GALSF)
+#if !defined(SINGLE_STAR_SINK_DYNAMICS) && defined(GALSF) && !defined(CLUSTER_SINK) // MRC
       double dt_accr = 4.2e5 / UNIT_TIME_IN_YR; // this is the 1% of Salpeter timescale; not relevant for low radiative efficiency
 #else
       double dt_accr = All.MaxSizeTimestep;
 #endif
         if(P[p].Sink_Mdot > 0 && P[p].Sink_Mass > 0 && All.Time > All.TimeBegin)
         {
-#if (defined(SINK_GRAVCAPTURE_GAS) || defined(SINK_WIND_KICK)) && !defined(SINGLE_STAR_SINK_DYNAMICS)
+#if (defined(SINK_GRAVCAPTURE_GAS) || defined(SINK_WIND_KICK) || defined(CLUSTER_SINK)) && !defined(SINGLE_STAR_SINK_DYNAMICS)
             /* really want prefactor to be ratio of median gas mass to sink mass */
             dt_accr = 0.001 * DMAX(P[p].Sink_Mass, All.MaxMassForParticleSplit) / P[p].Sink_Mdot;
 #if defined(SINK_WIND_KICK)
