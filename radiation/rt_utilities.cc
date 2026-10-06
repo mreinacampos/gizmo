@@ -827,6 +827,7 @@ void rt_update_driftkick(int i, double dt_entr, int mode)
                     
                     CellP[i].Radiation_Temperature = (e0 + dE_fac) / (MIN_REAL_NUMBER + DMAX(0., e0 / CellP[i].Radiation_Temperature + dTE_fac));
                     CellP[i].Radiation_Temperature = DMIN(CellP[i].Radiation_Temperature, T_max);
+                    CellP[i].Radiation_Temperature = DMAX(CellP[i].Radiation_Temperature, DMAX(T_min, MIN_REAL_NUMBER)); // numerator above can go negative in extreme dynamic-range regimes; floor before use below to avoid log10(negative)=NaN propagating into the opacity table lookup
                     a0_abs = -rt_absorption_rate(i,kf); // update absorption rate using the new radiation temperature //
                 }
                 double total_absorption_rate = E_abs_tot_toIR + fabs(a0_abs)*e0; // add the summed absorption and equate to dust emission //
@@ -1590,27 +1591,33 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate)
     if(dEdt < 0)
     {
 	scalefac = 0.9;
-	T_upper = DMIN(Tmax,Tdust), dEdt_upper = dEdt_guess; 
-	while(dEdt<0) {
-	    Tdust *= scalefac; 
+	double Tdust_floor = 2.73 / All.cf_atime; // CMB temperature: dust cannot radiatively cool below the ambient radiation bath, so floor the bracket search here
+	T_upper = DMIN(Tmax,Tdust), dEdt_upper = dEdt_guess;
+	while(dEdt<0 && Tdust > Tdust_floor && n_iter < MAXITER) {
+	    Tdust *= scalefac; Tdust = DMAX(Tdust,Tdust_floor);
 	    dEdt = dust_dEdt(i,T,Tdust,dust_absorption_rate,fdustmet_init);
         if(dEdt==0){return Tdust;}
-	    scalefac *= 0.9; 
+	    scalefac *= 0.9;
 	    n_iter++;
+	}
+	if(dEdt < 0) { // could not bracket downward: equilibrium dust temp is at/below the radiation-bath floor, or we hit the iteration cap -- return the floored value (warn only on the cap, the floor is a physical outcome)
+	    if(n_iter >= MAXITER) {PRINT_WARNING("Dust temperature bracketing (cooling side) failed to converge: ID=%lld iter=%d T=%g Tdust=%g Tfloor=%g dEdt=%g.\n",(long long)P[i].ID,n_iter,T,Tdust,Tdust_floor,dEdt);}
+	    return DMAX(Tdust,Tdust_floor);
 	}
 	T_lower = Tdust, dEdt_lower = dEdt;
     } else {
 	T_lower = Tdust, dEdt_lower = dEdt_guess;
 	scalefac = 1.1;
-	while(dEdt>0 && Tdust < Tmax) {
+	while(dEdt>0 && Tdust < Tmax && n_iter < MAXITER) {
 	    Tdust *= scalefac; Tdust = DMIN(Tdust,Tmax);
 	    dEdt = dust_dEdt(i,T,Tdust,dust_absorption_rate,fdustmet_init);
         if(dEdt==0){return Tdust;}
-	    scalefac *= 1.1; 
+	    scalefac *= 1.1;
 	    n_iter++;
 	    }
+	    if(n_iter >= MAXITER && dEdt > 0) {PRINT_WARNING("Dust temperature bracketing (heating side) failed to converge: ID=%lld iter=%d T=%g Tdust=%g dEdt=%g.\n",(long long)P[i].ID,n_iter,T,Tdust,dEdt); return DMIN(Tdust,Tmax);}
 	    T_upper = Tdust, dEdt_upper = dEdt;
-    }     
+    }
     if(T_upper==Tmax && dEdt_upper > 0) {return Tmax;}
     if(T_lower>=Tmax) {return Tmax;}
 
@@ -1774,6 +1781,7 @@ int rt_get_source_luminosity_chimes(int i, int mode, double *lum, double *chimes
 double rt_kappa_adaptive_IR_band(int i, double T_dust, double Trad, int do_emission_absorption_scattering_opacity, int dust_or_gas_opacity_only_flag)
 {
     if(do_emission_absorption_scattering_opacity==1) {Trad = T_dust;} // if we want the emissivity then we assume radiation emitted at T_dust
+    Trad = DMAX(Trad, MIN_REAL_NUMBER); // guard against non-positive Trad reaching log10() below: negative values cause log10=NaN, which propagates into an unguarded table-index cast further down (rt_dust_opacity.cc) and segfaults
     double fac=UNIT_SURFDEN_IN_CGS, x = 4.*log10(Trad) - 8., kappa=0, T_dust_opacitytable = T_dust; // needed for fitting functions to opacities (may come up with cheaper function later)
     double dx_excess=0; if(x > 7.) {dx_excess=x-7.; x=7.;} // cap for maximum temperatures at which fit-functions should be used //
     //if(x < -4.) {x=-4.;} // cap for minimum temperatures at which fit functions below should be used //

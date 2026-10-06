@@ -247,6 +247,10 @@ void find_timesteps(void)
     // ???
 #endif
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+    update_tag_anchor_refinement_center(); // override slot 0 with the tag-derived anchor (COM or densest tagged cell); the Type-3 scan above leaves slot 0 unset in this mode since there are no Type-3 special particles
+#endif
+
 
 #ifdef PMGRID
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
@@ -732,7 +736,7 @@ integertime get_timestep(int p,		/*!< particle index */
 #if defined(SINGLE_STAR_STARFORGE_DEFAULTS)
                 dt_courant = 0.4 * (L_particle*All.cf_atime) / C_LIGHT_CODE_REDUCED(p); /* hacked here for starforge, where mike's experimentation suggests we can get away with a slightly larger courant factor. remains experimental. courant-type criterion, using the reduced speed of light - here we hardcode the most aggressive possible Courant factor as an optimization */
 #ifdef SINK_WIND_SPAWN
-                if((CellP[p].MaxSignalVel > 0.5*C_LIGHT_CODE_REDUCED(p)) || (P[p].ID == All.SpawnedWindCellID && P[p].Type == 0)) {dt_courant *= 0.5}; // be more careful if this is a jet cell or there are transluminal velocities
+                if((CellP[p].MaxSignalVel > 0.5*C_LIGHT_CODE_REDUCED(p)) || (P[p].ID == All.SpawnedWindCellID && P[p].Type == 0)) {dt_courant *= 0.5;} // be more careful if this is a jet cell or there are transluminal velocities
 #endif
 #endif                
 #if defined(GALSF) && !defined(SINGLE_STAR_SINK_DYNAMICS) && defined(GALSF_FB_FIRE_STELLAREVOLUTION) // custom hacks for FIRE-RT tests; can override CFL condition with diffusion timestep certain limits

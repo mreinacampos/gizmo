@@ -135,7 +135,7 @@ extern ALIGN(32) struct particle_data
     MyFloat RProcessEvent_ThisTimeStep; /* R-process event tracker */
 #endif
 #ifdef GALSF_FB_FIRE_AGE_TRACERS
-    MyFloat AgeDeposition_ThisTimeStep; /* age-tracer deposition */
+    MyFloat AgeDeposition_ThisTimeStep; /* number of enrichment-age-tracer depositions at a given time */
 #endif
 #endif
 #ifdef CLUSTER_SINK
@@ -332,6 +332,10 @@ extern ALIGN(32) struct particle_data
     
 #if defined(FIRE_SUPERLAGRANGIAN_JEANS_REFINEMENT) || defined(SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM)
     MyFloat Time_Of_Last_MergeSplit;
+#endif
+
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+    int Refinement_Flag;            /*!< tag read from the ICs (field 'RefinementFlag'): particles with value 1 define the nuclear-zoom refinement anchor (mass-weighted COM, or densest-particle) tracked in All.SpecialParticle_Position_ForRefinement[0] */
 #endif
     
 #ifdef SPECIAL_POINT_WEIGHTED_MOTION

@@ -740,13 +740,13 @@ extern struct global_data_all_processes
 #endif
     
 #ifdef GALSF_FB_FIRE_AGE_TRACERS
-    double AgeTracerRateNormalization;              /* Determines Fraction of time to do age tracer deposition (with checks depending on time bin width for current star) */
+    double AgeTracerRateNormalization;              /* Determines fraction of time to deposit enrichment-age-tracer scalar weights, as the targeted number of deposition events per age bin */
 #ifdef GALSF_FB_FIRE_AGE_TRACERS_CUSTOM
-    double AgeTracerTimeBins[NUM_AGE_TRACERS+1];    /* Bin edges (left) for stellar age passive scalar tracers when using custom (uneven) bins the final value is the right edge of the final bin, hence a total size +1 the number of tracers */
+    double AgeTracerTimeBins[NUM_AGE_TRACERS+1];    /* Bin edges (left) for enrichment-age-tracers using custom (uneven) bins the final value is the right edge of the final bin, hence a total size +1 the number of tracers */
     char   AgeTracerListFilename[100];              /* file name to read ages from (in Myr) as a single column */
 #else
-    double AgeTracerBinStart;                       /* left bin edge of first age tracers (Myr) - for log spaced bins */
-    double AgeTracerBinEnd;                         /* right bin edge of last age tracer (Myr)  - for log spaced bins */
+    double AgeTracerBinStart;                       /* minimum age (Myr) of first age bin, used to determine default log spacing, but will include stars younger than this in first bin */
+    double AgeTracerBinEnd;                         /* maximum age (Myr) of final age bin, used to determine default log spacing, but will include stars older than this in final bin */
 #endif
 #endif
 
@@ -800,8 +800,8 @@ extern struct global_data_all_processes
     double Initial_ISMDustChem_SiliconToCarbonRatio; /* sets rough mass ratio between silicates are carbonaceous dust for given initial depletion */
     double ISMDustChem_AtomicMassTable[NUM_ISMDUSTCHEM_ELEMENTS]; /* atomic mass for each element in metallicity field */
     double ISMDustChem_SNeSputteringShutOffTime; /* amount of time to turn off thermal sputtering after SNe event to avoid double counting dust destruction */
-    int ISMDustChem_SilicateMetallicityFieldIndexTable[GALSF_ISMDUSTCHEM_VAR_ELEM_IN_SILICATES]; /* index in metallicity field for elements which make up silicate dust (O, Mg, Si, and possibly Fe) */
-    double ISMDustChem_SilicateNumberOfAtomsTable[GALSF_ISMDUSTCHEM_VAR_ELEM_IN_SILICATES]; /* number of O, Mg, Si, and possibly Fe in one formula unit of silicate dust */
+    int ISMDustChem_SilicateMetallicityFieldIndexTable[GALSF_ISMDUSTCHEM_VAR_ELEM_IN_SILICATES]; /* index in metallicity field for elements which make up silicate dust (O, Mg, Si, and Fe) */
+    double ISMDustChem_SilicateNumberOfAtomsTable[GALSF_ISMDUSTCHEM_VAR_ELEM_IN_SILICATES]; /* number of O, Mg, Si, and Fe in one formula unit of silicate dust */
     double ISMDustChem_EffectiveSilicateDustAtomicWeight; /* atomic weight of one formula unit of silicate dust, depends on which optional module you use */
     // Scaling arguements from parameter file used to adjust each dust process
     double ISMDustChem_SNeIIDustScaling;
@@ -811,17 +811,14 @@ extern struct global_data_all_processes
     double ISMDustChem_ThermalSputteringScaling;
     double ISMDustChem_AccretionTcutoffScaling;
     double ISMDustChem_SNeGasClearedOfDustScaling;
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
-    double ISMDustChem_SpeciesBulkDens[4]; /* condensed bulk density for silicates, carbonaceous, SiC, and metallic iron */
+    double ISMDustChem_SpeciesBulkDens[3]; /* condensed bulk density for silicates, carbonaceous, and metallic iron */
     int ISMDustChem_TrackedSpeciesIDTable[NUM_ISMDUSTCHEM_SPECIES]; /* contains unique ID numbers for each tracked dust species which correspond to their location in ISMDustChem_SpeciesFieldIndexTable. Returns -1 for untracked species  */
-    int ISMDustChem_SpeciesFieldIndexTable[6]; /* index in dust species field for given dust species. Length should be equal to the number of unique indices listed below. */
+    int ISMDustChem_SpeciesFieldIndexTable[NUM_ISMDUSTCHEM_SPECIES_IDS]; /* index in dust species field for given dust species. Sparse table indexed by fixed species ID (0..NUM_ISMDUSTCHEM_SPECIES_IDS-1), returns the packed field slot or -1 if untracked. */
     int ISMDustChem_Sil_Index;
     int ISMDustChem_Carb_Index;
-    int ISMDustChem_SiC_Index;
     int ISMDustChem_FreeIron_Index ;
     int ISMDustChem_ORes_Index;
     int ISMDustChem_InclIron_Index;
-#endif
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
     double UnitGrainNumber; /* factor to convert internal grain number unit to number of grains */
     double UnitGrainLength_in_cm; /* factor to convert internal grain length unit to cm */
@@ -838,6 +835,10 @@ extern struct global_data_all_processes
     double ISMDustChem_GrainBinSize; /* bin width of logarithmically spaced grain sizes */
     double ISMDustChem_GrainBinEdges[NUM_ISMDUSTCHEM_SIZE_BINS+1]; /* edges of each grain size bin */
     double ISMDustChem_GrainBinCenters[NUM_ISMDUSTCHEM_SIZE_BINS]; /* centers of each grain size bin in log space */
+    double ISMDustChem_C_NiNj[NUM_ISMDUSTCHEM_SIZE_BINS][NUM_ISMDUSTCHEM_SIZE_BINS]; /* pre-computed coefficients for coagulation/shattering polynomial */
+    double ISMDustChem_C_Njsi[NUM_ISMDUSTCHEM_SIZE_BINS][NUM_ISMDUSTCHEM_SIZE_BINS];
+    double ISMDustChem_C_Nisj[NUM_ISMDUSTCHEM_SIZE_BINS][NUM_ISMDUSTCHEM_SIZE_BINS];
+    double ISMDustChem_C_sisj[NUM_ISMDUSTCHEM_SIZE_BINS][NUM_ISMDUSTCHEM_SIZE_BINS];
 #endif
 #endif
 
@@ -1251,6 +1252,7 @@ enum iofields
   IO_ID,
   IO_CHILD_ID,
   IO_GENERATION_ID,
+  IO_REFINE_FLAG,
   IO_MASS,
   IO_U,
   IO_RHO,
@@ -1269,10 +1271,7 @@ enum iofields
   IO_ISMDUSTCHEMMOL,
   IO_MACHNUM,
   IO_DUSTCHEMGRAINBINNUMBERS,
-  IO_DUSTCHEMGRAINBINSLOPES,
   IO_DUSTCHEMGRAINBINMASS,
-  IO_DUSTCHEM_COAG_MASSRATE,
-  IO_DUSTCHEM_SHAT_MASSRATE,
   IO_SINKMASS,
   IO_SINKMASSALPHA,
   IO_SINK_ANGMOM,

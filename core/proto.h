@@ -51,6 +51,9 @@ double target_mass_renormalization_factor_for_mergesplit(int i, int split_key);
 int check_if_sufficient_mergesplit_time_has_passed(int i);
 int is_particle_a_special_zoom_target(int i);
 #endif
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+void update_tag_anchor_refinement_center(void);
+#endif
 int merge_particles_ij(int i, int j);
 int split_particle_i(int i, int n_particles_split, int i_nearest);
 double gamma_eos(int i);
@@ -596,7 +599,6 @@ void ISMDustChem_get_elem_yields_from_species_yields(double *dust_yields, double
 void ISMDustChem_get_species_key_elem(int spec_indx, double *dust_metallicity, int *key_elem, double *key_num_atoms, double *key_mass);
 void ISMDustChem_get_species_properties(int spec_indx, double *dust_atomic_weight, double *bulk_dens);
 void ISMDustChemEvo_renormalize_dust_fields(int i);
-void check_dust_fields(int i, int update_process);
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
 void Initialize_ISMDustChemEvo_Particle_Variables(int i);
 double get_ISMDustChemEvo_bin_mass(int i, int j, int k);
@@ -607,14 +609,15 @@ void ISMDustChemEvo_get_wind_dust_grain_size_yields(double *yields, double Msne)
 void ISMDustChemEvo_update_bins_given_grain_size_change(int i, int j, double *bin_da, double mass_limit);
 void update_dust_shattering_and_coagulation(int i, double dtime_gyr, double temp, double rho);
 void update_dust_photodestruction(int i, double dtime_gyr);
-double shattering_coagulation_polynomial(int i, int spec_indx, int bin_i, int bin_j);
+void ISMDustChemEvo_precompute_poly_coeffs(void);
+double ISMDustChemEvo_fast_shat_coag_poly(int i, int spec_indx, int bin_i, int bin_j);
+double ISMDustChemEvo_explicit_shat_coag_poly(double ail, double aiu, double aic, double ajl, double aju, double ajc, double Ni, double si, double Nj, double sj);
 void ISMDustChemEvo_update_bins_given_mass_change(int i, int j, double *bin_dM, double bulk_dens);
 void ISMDustChemEvo_get_new_bin_N_and_slope_given_mass_change(double *bin_dM, double *bin_M, double *bin_N, double *bin_slope, double *new_bin_N, double *new_bin_slope, double bulk_dens);
 void ISMDustChem_SNe_sputtering_step(int spec_indx, double *init_bin_N, double *init_bin_slope, double *init_bin_M, double *final_bin_N, double *final_bin_slope, double *final_bin_M, double bulk_dens);
 void ISMDustChem_SNe_shattering_step(int spec_indx, double *init_bin_N, double *init_bin_slope, double *init_bin_M, double *final_bin_N, double *final_bin_slope, double *final_bin_M, double bulk_dens);
 // Below functions only for debugging
-void ISMDustChemEvo_check_Z_injected(int i, double m0, double mf, double *Z_injected); 
-void ISMDustChemEvo_check_bins_after_update(int i, int update_process, double mass); 
+void ISMDustChemEvo_check_bins_after_update(int i, int update_process, double mass);
 void ISMDustChemEvo_check_yields_before_update(double *bin_nums, double *bin_slopes, double *bin_masses, int yields_process, int species_num, double total_mass);
 #endif
 #endif

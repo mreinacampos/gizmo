@@ -148,8 +148,9 @@
 #define GALSF_FB_FIRE_RT_HIIHEATING         /*! gas within HII regions around young stars is photo-heated to 10^4 K - local stromgren approximation */
 #define GALSF_FB_FIRE_RT_LOCALRP            /*! turn on local radiation pressure coupling to gas - account for local multiple-scattering and isotropic local absorption */
 #define GALSF_FB_FIRE_RT_LONGRANGE          /*! continuous acceleration from starlight (uses luminosity tree) to propagate FIRE RT */
-#define GALSF_FB_FIRE_AGE_TRACERS 16        /*! tracks a set of passive scalars corresponding to stellar ages for chemical evolution model postprocessing */
-
+#if !defined(GALSF_FB_FIRE_AGE_TRACERS)
+#define GALSF_FB_FIRE_AGE_TRACERS 16        /*! enrichment-age-tracer model, tracks a set of passive scalars corresponding to stellar ages for modeling metal enrichment in postprocessing */
+#endif
 #if !(defined(ADAPTIVE_GRAVSOFT_FORGAS) || defined(ADAPTIVE_GRAVSOFT_FORALL))
 #define ADAPTIVE_GRAVSOFT_FORGAS            /*! default choice is adaptive force softening for gas, but not stars [since ambiguously defined] */
 #endif
@@ -1115,6 +1116,9 @@
 
 
 #if defined(GALSF_ISMDUSTCHEM_MODEL) /* define some global and other useful variables for dust chemistry modules which also utilize the metals info above */
+#ifndef GALSF_ISMDUSTCHEM_SILICATE_COMPOSITION
+#define GALSF_ISMDUSTCHEM_SILICATE_COMPOSITION (1) /* default: olivine-pyroxene mix; the module reads this as a plain integer, so it must always be defined when GALSF_ISMDUSTCHEM_MODEL is active */
+#endif
 #if defined(COOLING)
 #define GALSF_ISMDUSTCHEM_HIGHTEMPDUSTCOOLING // optional, can turn off
 #endif
@@ -1124,41 +1128,28 @@
 
 #define NUM_ISMDUSTCHEM_ELEMENTS (1+NUM_LIVE_SPECIES_FOR_COOLTABLES) // number of metal species evolved for dust
 #define NUM_ISMDUSTCHEM_SOURCES (4) // Sources of dust creation/growth 0=gas-dust accretion, 1=SNe Ia, 2=SNe II, 3=AGB outflows
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
-#if (GALSF_ISMDUSTCHEM_MODEL & 4) && (GALSF_ISMDUSTCHEM_MODEL & 8)
-#define NUM_ISMDUSTCHEM_SPECIES 6 /* 0=silicates, 1=carbonaceous, 2=SiC, 3=free-flying iron, 4=O reservoir, 5=iron inclusions in silicates */
-#elif (GALSF_ISMDUSTCHEM_MODEL & 4) || (GALSF_ISMDUSTCHEM_MODEL & 8)
-#define NUM_ISMDUSTCHEM_SPECIES 5 /* 0=silicates, 1=carbonaceous, 2=SiC, 3=free-flying iron, 4=O reservoir or iron inclusions in silicates */
-#elif ((GALSF_ISMDUSTCHEM_MODEL & 16) || (GALSF_ISMDUSTCHEM_MODEL & 32)) && defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
-#ifndef OUTPUT_MACH_NUMBER
-#define OUTPUT_MACH_NUMBER
+#define NUM_ISMDUSTCHEM_SPECIES (2*(GALSF_ISMDUSTCHEM_MODEL & 1) + (GALSF_ISMDUSTCHEM_MODEL & 2)/2 + (GALSF_ISMDUSTCHEM_MODEL & 4)/4 + (GALSF_ISMDUSTCHEM_MODEL & 8)/8) /* number of dust species tracked, depends on the model */
+#define NUM_ISMDUSTCHEM_SPECIES_IDS (5) /* number of possible species IDs (0=silicate,1=carbon,2=free iron,3=O reservoir,4=iron inclusions); the sparse SpeciesFieldIndexTable is indexed by these fixed IDs, not the packed tracked-species count */
+#if !(GALSF_ISMDUSTCHEM_MODEL & 1)
+#error "GALSF_ISMDUSTCHEM_MODEL requires bit 1 (silicates+carbon are the base species always tracked); e.g. use (1), (1+2), ..."
 #endif
-#if (GALSF_ISMDUSTCHEM_MODEL & 16)
-#define NUM_ISMDUSTCHEM_SPECIES 3 /* 0=silicates, 1=carbonaceous, 3=metallic iron */
-#elif (GALSF_ISMDUSTCHEM_MODEL & 32)
-#define NUM_ISMDUSTCHEM_SPECIES 2 /* 0=silicates, 1=carbonaceous */
+#if (GALSF_ISMDUSTCHEM_MODEL & 8) && !(GALSF_ISMDUSTCHEM_MODEL & 2)
+#error "GALSF_ISMDUSTCHEM_MODEL bit 8 (iron inclusions in silicates) requires bit 2 (metallic iron)"
+#endif
+#define GALSF_ISMDUSTCHEM_VAR_ELEM_IN_SILICATES 4 /* O, Mg, Si, and Fe needed to make silicates */
+#undef NUM_ADDITIONAL_PASSIVESCALAR_SPECIES_FOR_YIELDS_AND_DIFFUSION
+#ifdef GALSF_ISMDUSTCHEM_GRAINSIZEEVO
+#ifndef OUTPUT_MACH_NUMBER // mach number is used for subresolved clumping in grain size evo model
+#define OUTPUT_MACH_NUMBER
 #endif
 #define NUM_ISMDUSTCHEM_SIZE_BINS (GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
 #define UNIT_GRAIN_NUMBER      (All.UnitGrainNumber)
 #define UNIT_GRAIN_LENGTH      (All.UnitGrainLength_in_cm)
-#else 
-#define NUM_ISMDUSTCHEM_SPECIES 4 /* 0=silicates, 1=carbonaceous, 2=SiC, 3=free-flying iron */
-#endif
-#else
-#define NUM_ISMDUSTCHEM_SPECIES 0 /* no explicit dust species evolved */
-#endif
-#if (GALSF_ISMDUSTCHEM_MODEL & 4) || (GALSF_ISMDUSTCHEM_MODEL & 16) // explicit iron nanoparticle model active
-#define GALSF_ISMDUSTCHEM_VAR_ELEM_IN_SILICATES 3 /* Assume only O, Mg, and Si in silicate structure while Fe is already present via iron inclusions */
-#else
-#define GALSF_ISMDUSTCHEM_VAR_ELEM_IN_SILICATES 4 /* O, Mg, Si, and Fe needed to make silicates */
-#endif
-#undef NUM_ADDITIONAL_PASSIVESCALAR_SPECIES_FOR_YIELDS_AND_DIFFUSION
-#if ((GALSF_ISMDUSTCHEM_MODEL & 16) || (GALSF_ISMDUSTCHEM_MODEL & 32)) && defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
 #define NUM_ADDITIONAL_PASSIVESCALAR_SPECIES_FOR_YIELDS_AND_DIFFUSION (NUM_ISMDUSTCHEM_ELEMENTS+NUM_ISMDUSTCHEM_SOURCES+NUM_ISMDUSTCHEM_SPECIES+(2*NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS))
 #else
 #define NUM_ADDITIONAL_PASSIVESCALAR_SPECIES_FOR_YIELDS_AND_DIFFUSION (NUM_ISMDUSTCHEM_ELEMENTS+NUM_ISMDUSTCHEM_SOURCES+NUM_ISMDUSTCHEM_SPECIES)
 #endif
-#endif
+#endif // end of GALSF_ISMDUSTCHEM_MODEL block
 
 /* end of metals block */
 
@@ -1214,6 +1205,13 @@
 #if !(CHECK_IF_PREPROCESSOR_HAS_NUMERICAL_VALUE_(SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM)) // allow to be set to integer value to represent a >1 number of special zoom sites
 #undef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM
 #define SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM (1)
+#endif
+#endif
+
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR // tag-derived nuclear-zoom anchor: slot 0 of SpecialParticle_Position_ForRefinement comes from IC-tagged particles instead of a Type-3 special particle. requires SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM (it reuses that module's SpecialParticle refinement array), which is enforced naturally since the producer writes to that NUCLEAR_ZOOM-gated array.
+#if !(CHECK_IF_PREPROCESSOR_HAS_NUMERICAL_VALUE_(SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR)) // 1 = mass-weighted COM of tagged particles (default); 2 = lock onto densest tagged particle
+#undef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+#define SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR (1)
 #endif
 #endif
 

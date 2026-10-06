@@ -217,7 +217,7 @@
 # -------- users are encouraged to explore their own stellar evolution models and include various types of feedback (e.g. SNe, stellar mass-loss, NS mergers, etc)
 #GALSF_FB_MECHANICAL            # explicit algorithm including thermal+kinetic/momentum terms from Hopkins+ 2018 (MNRAS, 477, 1578): manifestly conservative+isotropic, and accounts properly for un-resolved PdV work+cooling during blastwave expansion. cite Hopkins et al. 2018, MNRAS, 477, 1578, and Hopkins+ 2014 (MNRAS 445, 581)
 #GALSF_FB_THERMAL               # simple 'pure thermal energy dump' feedback: mass, metals, and thermal energy are injected locally in simple kernel-weighted fashion around young stars. tends to severely over-cool owing to lack of mechanical/kinetic treatment at finite resolution (better algorithm is mechanical)
-#GALSF_FB_FIRE_AGE_TRACERS=16   # model for arbitrary tracers of different age-bins of stellar yields (number here = number of log-spaced bins), which can be re-convolved in post-processing. developed by A. Emerick, paper in prep by A. Wetzel, meantime cite arXiv:2203.00040
+#GALSF_FB_FIRE_AGE_TRACERS=16   # enrichment-age-tracer model, for tracking stellar enrichment via passive scalar tracer 'weights' in bins of stellar age, to compute elemental abundances in postprocessing (number here = number of log-spaced bins). originally developed by A. Emerick, further developed with paper in prep by A. Wetzel, meantime cite arXiv:2203.00040
 ## ----------------------------------------------------------------------------------------------------
 # ----- FIRE simulation modules for mechanical+radiative FB with full evolution+yield tracks (Hopkins et al. 2014, Hopkins et al., 2017a, arXiv:1702.06148 and 2203.00040) ------ ##
 # -------- Use of these modules as part of the public code is now allowed with appropriate citations to the specific methods papers above. These should be referred to as using the methods "from the FIRE public code (as in citations)", not as FIRE collaboration papers or FIRE simulations. FIRE simulations/papers follow FIRE collaboration guidelines, and you should reach out to members of the collaboration if you wish to write FIRE papers or access still in-development (non-public) FIRE codes/outputs/etc.
@@ -623,6 +623,23 @@
 #ALLOW_IMBALANCED_GASPARTICLELOAD   # increases All.MaxPartGas to All.MaxPart: can allow better load-balancing in some cases, but uses more memory. But use me if you run into errors where it can't fit the domain (where you would increase PartAllocFac, but can't for some reason)
 ####################################################################################################
 
+############################################################################################################################-
+#------------------ ISM Dust Chemical Evolution Models (follow growth, destruction, and size evolution of different grain species)
+#----------------- Users of any of these modules should cite Choban et al., 2022/25 for the methods/implementation in GIZMO and FIRE
+############################################################################################################################-
+#GALSF_ISMDUSTCHEM_MODEL=(1+2)              #- enable live dust evolution model (value deteremines the dust species tracked). Use GALSF_ISMDUSTCHEM_SILICATE_COMPOSITION to set the silicate composition.
+                                            #- model = 1: Track silicates and carbonaceous dust.
+                                            #- model = 2: Track metallic iron dust.
+                                            #- model = 4: Track oxygen bearing dust species which is a simple match to observations of MW oxygen depletion.
+                                            #- model = 8: Track metallic iron nanoparticles with set fraction assumed to be locked in silicate dust as inclusions based on Zhukovska+(2018). Requires GALSF_ISMDUSTCHEM_MODEL=2.
+#GALSF_ISMDUSTCHEM_SILICATE_COMPOSITION=(1+2+8)   #- set the silicate dust chemical composition. This changes the production, growth, and destruction rates of silicate dust, and the max depletions of Mg, Fe, Si, and O in the gas phase.
+                                            #- model = 1 (default): olivine-pyroxene mix [(Fe_0.571 Mg_1.06) Si O_3.63]
+                                            #- model = 2: add 2 extra O atoms to better match O depletions.
+                                            #- model = 4: add 1 extra Fe atom to better match Fe depletions.
+                                            #- model = 8: remove all Fe. Use with additional metallic iron species to avoid Fe limiting silicate growth.
+#GALSF_ISMDUSTCHEM_GRAINSIZEEVO=16          #- enable grain size evolution model w/ N number of logarithmically spaced bins (must also turn on GALSF_ISMDUSTCHEM_MODEL= 1 or (1 + 2) only and GALSF_ISMDUSTCHEM_SILICATE_COMPOSITION)
+############################################################################################################################-
+
 
 
 
@@ -639,6 +656,7 @@
 #GALSF_SFR_IMF_SAMPLING_DISTRIBUTE_SF=(2.0) #- star particle formation of O-stars is spread over this multiple of the free-fall time; requires GALSF_SFR_IMF_SAMPLING. developed by PFH
 #GALSF_MERGER_STARCLUSTER_PARTICLES         #- module which merges star particles together meeting certain core-collapse conditions, so they can be cosmologically evolved. developed by PFH
 #SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM           #- module for special nuclear zoom-in simulations. currently entirely custom behavior, not designed for wide use.
+#SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR #- derive the zoom refinement anchor (slot 0 of the SpecialParticle refinement array) from IC-tagged particles instead of a Type-3 special particle. reads a per-particle 'RefinementFlag' field from the ICs; particles with value 1 define the anchor, tracked as their mass-weighted center-of-mass (value=1, default) or the position of the single densest tagged gas cell (value=2). all downstream refinement/gravity/RT/sink consumers use the anchor unchanged. requires SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM. intended as a foundation for user-built refinement region logic.
 #CBE_INTEGRATOR_WITHGRADIENTS               #- module being developed. early stage
 #CRFLUID_INJECTION_AT_SHOCKS=(0.1)          #- inject CRs (using standard spectra) at resolved shocks throughout simulation. value=maximum fraction of shock energy flux to convert to accelerated CRs. currently using hard threshold of >Mach 5, >100 km/s shock velocity, along with spurious shock detection. coded by PFH, in testing
 #SINK_CR_INJECTION_AT_TERMINATION=(0.25)    #- inject CRs (requires SINK_WIND_SPAWN and SINK_COSMIC_RAYS) approximately at spawned-cell termination shocks. developed by Kung-Yi Su, this version testing by PFH, currently uses very simple deceleration to fraction of launch velocity (=value set here) to determine when to inject
@@ -648,18 +666,4 @@
 #DILATION_FOR_STELLAR_KINEMATICS_ONLY       #- special version of time dilation designed for stellar kinematics in e.g. dense star clusters or galaxy centers
 #SINK_RIAF_SUBEDDINGTON_MODEL=(0.01)        #- enable an arbitrary modular variation in the radiative efficiency of BHs as a function of eddington ratio or other particle properties, with the critical transition to the jet mode at this eddington ratio (defined in terms of mdot/mdot_crit)
 ####################################################################################################-
-
-############################################################################################################################-
-#------------------ ISM Dust Chemical Evolution Models (follow growth, destruction, and size evolution of different grain types)
-#----------------- Users of any of these modules should cite Choban et al., 2022/25 for the methods/implementation in GIZMO and FIRE
-############################################################################################################################-
-#GALSF_ISMDUSTCHEM_MODEL=(2+4+8)    #- enable live dust evolution model (must select either elemental or species or other model codes as well)
-                                    #- model = 1: "dust by element" dust evolution model based off Bekki(2013)/McKinnon+(2016). Track generalized silicates and carbonaceous dust.
-                                    #- model = 2: "dust by species" dust evolution model based off Zhukovska+(2008/2016/2018). Tracks silicates (set composition), carbonaceous, SiC, and metallic iron dust along with optional iron nanoparticles and/or O reservoir dust species.
-                                    #- model = 4: additional metallic iron dust nano-particles with set fraction assumed to be locked in silicate dust as inclusions based on Zhukovska+(2018)
-                                    #- model = 8: additional oxygen bearing dust species which is a simple match to observations of MW oxygen depletion since they cannot be explained with purely silicate dust
-                                    #- model = 16: modified "dust by species" model to be used with GALSF_ISMDUSTCHEM_GRAINSIZEEVO. Tracks size evolution of silicates (set composition), carbonaceous, and metallic iron
-                                    #- model = 32: modified "dust by species" model to be used with GALSF_ISMDUSTCHEM_GRAINSIZEEVO. Tracks size evolution of silicates w/ extra O and Fe (set composition) and carbonaceous
-#GALSF_ISMDUSTCHEM_GRAINSIZEEVO=16  #- enable grain size evolution model w/ N number of logarithmically spaced bins (must also turn on GALSF_ISMDUSTCHEM_MODEL= 2 + (16 or 32) only)
-############################################################################################################################-
 

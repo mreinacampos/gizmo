@@ -261,6 +261,17 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                 }
             break;
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:	/* IC tag defining the nuclear-zoom refinement anchor */
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    *ip++ = (MyIDType) P[pindex].Refinement_Flag;
+                    n++;
+                }
+            break;
+#endif
+
         case IO_MASS:		/* particle mass */
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
@@ -590,7 +601,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
         break;
             
         case IO_DUSTCHEMSPECIESMET:    /* gas dust species following Species routines */
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
@@ -653,23 +664,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 #endif
         break;
         
-        case IO_DUSTCHEMGRAINBINSLOPES:    /* slopes for each grain size bin for each dust species */
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO) 
-            for(n = 0; n < pc; pindex++)
-                if(P[pindex].Type == type)
-                {
-                    int k1, k2;
-                    for(k1=0;k1<NUM_ISMDUSTCHEM_SPECIES;k1++) {
-                        for(k2=0;k2<NUM_ISMDUSTCHEM_SIZE_BINS;k2++) {    
-                                fp[NUM_ISMDUSTCHEM_SIZE_BINS*k1 + k2] = (MyOutputFloat) (CellP[pindex].ISMDustChem_Dust_SlopeInBin[k1][k2] / (UNIT_GRAIN_NUMBER/(UNIT_GRAIN_LENGTH*UNIT_GRAIN_LENGTH)));
-                            }
-                    }
-                    fp += (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
-                    n++;
-                }
-#endif
-        break;
-
         case IO_DUSTCHEMGRAINBINMASS:    /* mass for each grain size bin for each dust species */
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
             for(n = 0; n < pc; pindex++)
@@ -686,38 +680,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                 }
 #endif
         break;
-
-case IO_DUSTCHEM_COAG_MASSRATE:    /* coagulation rate for each grain size bin for each dust species */
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
-            for(n = 0; n < pc; pindex++)
-                if(P[pindex].Type == type)
-                {
-                    int k1, k2;
-                    for(k1=0;k1<NUM_ISMDUSTCHEM_SPECIES;k1++) {
-                        for(k2=0;k2<NUM_ISMDUSTCHEM_SIZE_BINS;k2++) {    
-                                fp[NUM_ISMDUSTCHEM_SIZE_BINS*k1 + k2] = (MyOutputFloat) (CellP[pindex].ISMDustChem_Coag_dMdt[k1][k2] / (UNIT_MASS_IN_CGS/UNIT_TIME_IN_CGS));
-                            }
-                    }
-                    fp += (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
-                    n++;
-                }
-#endif
-
-case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin for each dust species */
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
-            for(n = 0; n < pc; pindex++)
-                if(P[pindex].Type == type)
-                {
-                    int k1, k2;
-                    for(k1=0;k1<NUM_ISMDUSTCHEM_SPECIES;k1++) {
-                        for(k2=0;k2<NUM_ISMDUSTCHEM_SIZE_BINS;k2++) {    
-                                fp[NUM_ISMDUSTCHEM_SIZE_BINS*k1 + k2] = (MyOutputFloat) (CellP[pindex].ISMDustChem_Shat_dMdt[k1][k2] / (UNIT_MASS_IN_CGS/UNIT_TIME_IN_CGS));
-                            }
-                    }
-                    fp += (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
-                    n++;
-                }
-#endif
 
         case IO_CHIMES_ABUNDANCES:
 #ifdef CHIMES
@@ -2047,6 +2009,12 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
             bytes_per_blockelement = sizeof(MyIDType);
             break;
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            bytes_per_blockelement = sizeof(MyIDType);
+            break;
+#endif
+
         case IO_SINKPROGS:
         case IO_GRAINTYPE:
         case IO_EOSCOMP:
@@ -2232,7 +2200,7 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
             break;
 
         case IO_DUSTCHEMSPECIESMET:
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             if(mode)
                 bytes_per_blockelement = (NUM_ISMDUSTCHEM_SPECIES) * sizeof(MyInputFloat);
             else
@@ -2269,9 +2237,6 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
 
         case IO_DUSTCHEMGRAINBINNUMBERS:
         case IO_DUSTCHEMGRAINBINMASS:
-        case IO_DUSTCHEMGRAINBINSLOPES:
-        case IO_DUSTCHEM_COAG_MASSRATE:
-        case IO_DUSTCHEM_SHAT_MASSRATE:
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
             if(mode)
                 bytes_per_blockelement = (NUM_ISMDUSTCHEM_SPECIES * NUM_ISMDUSTCHEM_SIZE_BINS) * sizeof(MyInputFloat);
@@ -2385,6 +2350,12 @@ int get_datatype_in_block(enum iofields blocknr)
             typekey = 2;		/* native long long */
             break;
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            typekey = 2;		/* native long long */
+            break;
+#endif
+
         case IO_SINKPROGS:
         case IO_GRAINTYPE:
         case IO_EOSCOMP:
@@ -2424,6 +2395,9 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_ID:
         case IO_CHILD_ID:
         case IO_GENERATION_ID:
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+#endif
         case IO_MASS:
         case IO_SINK_DIST:
         case IO_U:
@@ -2577,7 +2551,7 @@ int get_values_per_blockelement(enum iofields blocknr)
             break;
 
         case IO_DUSTCHEMSPECIESMET:
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             values = NUM_ISMDUSTCHEM_SPECIES;
 #endif
             break; 
@@ -2601,10 +2575,7 @@ int get_values_per_blockelement(enum iofields blocknr)
             break;
 
         case IO_DUSTCHEMGRAINBINNUMBERS:
-        case IO_DUSTCHEMGRAINBINSLOPES:
         case IO_DUSTCHEMGRAINBINMASS:
-        case IO_DUSTCHEM_COAG_MASSRATE:
-        case IO_DUSTCHEM_SHAT_MASSRATE:
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
             values = (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
 #endif
@@ -2712,6 +2683,9 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_ID:
         case IO_CHILD_ID:
         case IO_GENERATION_ID:
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+#endif
         case IO_POT:
         case IO_SOFT:
         case IO_AGS_HKERN:
@@ -2819,10 +2793,7 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_MACHNUM:
         case IO_SHOCKMACHNUM:
         case IO_DUSTCHEMGRAINBINNUMBERS:
-        case IO_DUSTCHEMGRAINBINSLOPES:
         case IO_DUSTCHEMGRAINBINMASS:
-        case IO_DUSTCHEM_COAG_MASSRATE:
-        case IO_DUSTCHEM_SHAT_MASSRATE:
         case IO_CLUSTER_SINK_ALPHAVIR:
         case IO_CLUSTER_SINK_VDISP:
             for(i = 1; i < 6; i++) {typelist[i] = 0;}
@@ -2944,6 +2915,12 @@ int blockpresent(enum iofields blocknr)
             return 1;			/* always present */
             break;
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            return 1;			/* present iff the tag-anchor mode is compiled in */
+            break;
+#endif
+
         case IO_NE:
         case IO_NH:
 #if (defined(COOLING) || defined(RADTRANSFER)) && !defined(CHIMES)
@@ -3031,7 +3008,7 @@ int blockpresent(enum iofields blocknr)
             break;               
           
         case IO_DUSTCHEMSPECIESMET:
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             return 1;
 #endif
             break; 
@@ -3048,19 +3025,6 @@ int blockpresent(enum iofields blocknr)
             return 1;
 #endif
             break;
-
-            case IO_DUSTCHEMGRAINBINSLOPES:
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO) 
-            return 1;
-#endif
-            break;      
-
-            case IO_DUSTCHEM_COAG_MASSRATE:
-            case IO_DUSTCHEM_SHAT_MASSRATE:
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
-            return 1;
-#endif
-            break;   
 
         case IO_MACHNUM:
 #if defined(OUTPUT_MACH_NUMBER)
@@ -3631,6 +3595,11 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
         case IO_GENERATION_ID:
             strncpy(label, "IDgn", 4);
             break;
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            strncpy(label, "RefF", 4);
+            break;
+#endif
         case IO_ID:
             strncpy(label, "ID  ", 4);
             break;
@@ -3726,15 +3695,6 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
             break;
         case IO_DUSTCHEMGRAINBINNUMBERS:
             strncpy(label, "DBNU", 4);
-            break;
-        case IO_DUSTCHEMGRAINBINSLOPES:
-            strncpy(label, "DBSL", 4);
-            break;
-        case IO_DUSTCHEM_COAG_MASSRATE:
-            strncpy(label, "DBCO", 4);
-            break;
-        case IO_DUSTCHEM_SHAT_MASSRATE:
-            strncpy(label, "DBSH", 4);
             break;
         case IO_DUSTCHEMGRAINBINMASS:
             strncpy(label, "DBMA", 4);
@@ -4092,6 +4052,11 @@ void get_dataset_name(enum iofields blocknr, char *buf)
         case IO_GENERATION_ID:
             strcpy(buf, "ParticleIDGenerationNumber");
             break;
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            strcpy(buf, "RefinementFlag");
+            break;
+#endif
         case IO_MASS:
             strcpy(buf, "Masses");
             break;
@@ -4203,17 +4168,8 @@ void get_dataset_name(enum iofields blocknr, char *buf)
         case IO_DUSTCHEMGRAINBINNUMBERS:
             strcpy(buf, "DustBinNumbers");
             break;
-        case IO_DUSTCHEMGRAINBINSLOPES:
-            strcpy(buf, "DustBinSlopes");
-            break;
         case IO_DUSTCHEMGRAINBINMASS:
             strcpy(buf, "DustBinMasses");
-            break;
-        case IO_DUSTCHEM_COAG_MASSRATE:
-            strcpy(buf, "DustBinCoagMassRate");
-            break;
-        case IO_DUSTCHEM_SHAT_MASSRATE:
-            strcpy(buf, "DustBinShatMassRate");
             break;
         case IO_CHIMES_ABUNDANCES:
             strcpy(buf, "ChimesAbundances");
