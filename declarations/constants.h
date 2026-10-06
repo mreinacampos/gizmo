@@ -148,8 +148,9 @@
 #define HIIRegion_Temp (1.0e4) /* temperature (in K) of heated gas */
 #endif
 
-
-#if defined(COOLING) || defined(RT_INFRARED)
+#if defined(CLUSTER_SINK) // MRC - debugging
+#define MAX_DUST_TEMP 1.0e5 // maximum dust temperature for which we expect to call opacity or dust-to-metals ratio functions
+#elif defined(COOLING) || defined(RT_INFRARED)
 #define MAX_DUST_TEMP 1.0e4 // maximum dust temperature for which we expect to call opacity or dust-to-metals ratio functions
 #endif
 
