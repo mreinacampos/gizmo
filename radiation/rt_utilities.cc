@@ -787,6 +787,7 @@ void rt_update_driftkick(int i, double dt_entr, int mode)
 
     for(k_tmp=0; k_tmp<N_RT_FREQ_BINS; k_tmp++)
     {
+
 #ifdef RT_INFRARED
         // need to do IR last after summing absorption from other bands //
         if(RT_FREQ_BIN_INFRARED < N_RT_FREQ_BINS-1) {if(kf == RT_FREQ_BIN_INFRARED) {kf = N_RT_FREQ_BINS-1;} if(kf == N_RT_FREQ_BINS-1) {kf = RT_FREQ_BIN_INFRARED;}}
@@ -831,7 +832,30 @@ void rt_update_driftkick(int i, double dt_entr, int mode)
                     a0_abs = -rt_absorption_rate(i,kf); // update absorption rate using the new radiation temperature //
                 }
                 double total_absorption_rate = E_abs_tot_toIR + fabs(a0_abs)*e0; // add the summed absorption and equate to dust emission //
+
+#ifdef CLUSTER_SINK_DEBUG
+                if((i == 0) && (ThisTask == 0)){ //MRC
+                    fflush(stdout);
+                    printf("[DEBUGGING - rt_update_driftkick - 846] ThisTask %d, i %d - Dust_Temperature %g - E_abs_tot_toIR %g, - fabs(a0_abs)*e0 %g - total_absorption_rate %g,  vol_inv_phys %g, C_LIGHT_CODE/C_LIGHT_CODE_REDUCED(i) %g \n", 
+                        ThisTask, i, CellP[i].Dust_Temperature, E_abs_tot_toIR, fabs(a0_abs)*e0, total_absorption_rate, vol_inv_phys, C_LIGHT_CODE/C_LIGHT_CODE_REDUCED(i)); //MRC
+                    fflush(stdout);
+                }
+#endif
+#ifdef CLUSTER_SINK_DEBUG
+                if ((i == 0) && (ThisTask == 0)){
+                    printf("[DEBUGGING - rt_update_driftkick - 835] - ThisTask %d, i %d - Dust_Temperature: %g, T_gas: %g\n", ThisTask, i, CellP[i].Dust_Temperature, T_gas); //MRC
+                    fflush(stdout);
+                } // MRC{}
+                assert(CellP[i].Dust_Temperature < MAX_DUST_TEMP); // MRC
+ #endif
                 CellP[i].Dust_Temperature = rt_eqm_dust_temp(i, T_gas, total_absorption_rate * vol_inv_phys * C_LIGHT_CODE / C_LIGHT_CODE_REDUCED(i));
+#ifdef CLUSTER_SINK_DEBUG
+                if ((i == 0) && (ThisTask == 0)){
+                    printf("[DEBUGGING - rt_update_driftkick - 847] - ThisTask %d, i %d - Dust_Temperature: %g, T_gas: %g\n", ThisTask, i, CellP[i].Dust_Temperature, T_gas); //MRC
+                    fflush(stdout);
+                } // MRC{}
+                assert(CellP[i].Dust_Temperature < MAX_DUST_TEMP); // MRC
+ #endif
                 if(CellP[i].Dust_Temperature < T_min) {CellP[i].Dust_Temperature = T_min;}
                 double Tdust_eff = CellP[i].Dust_Temperature, Trad_eff = CellP[i].Radiation_Temperature;
                 double kappa_gas = rt_kappa_adaptive_IR_band(i,Tdust_eff,Trad_eff,-1,-1), kappa_total = rt_kappa_adaptive_IR_band(i,Tdust_eff,Trad_eff,0,0);
@@ -1405,6 +1429,13 @@ double dust_dE_cooling(int i, double Tgas, double Tdust, double* Tdust_fixedpoin
     double nHcgs = HYDROGEN_MASSFRAC * UNIT_DENSITY_IN_CGS * CellP[i].Density * All.cf_a3inv / PROTONMASS_CGS;
     double lambda_to_dErad = (C_LIGHT_CODE_REDUCED(i)/C_LIGHT_CODE) * nHcgs * nHcgs * (dt*UNIT_TIME_IN_CGS) / (CellP[i].Density * All.cf_a3inv * UNIT_DENSITY_IN_CGS) / (UNIT_SPECEGY_IN_CGS) * P[i].Mass; /* need to account for RSOL factors in emission/absorption rates */
     
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) // MRC
+        {                
+            printf("[DEBUGGING - dust_dE_cooling - 1437] - ThisTask %d, i %d - CellP[i].Density %g, nHcgs %g - (C_LIGHT_CODE_REDUCED(i)/C_LIGHT_CODE) %g, dt %g, P[i].Mass %g, lambda_to_dErad %g\n", ThisTask, i, CellP[i].Density, nHcgs, (C_LIGHT_CODE_REDUCED(i)/C_LIGHT_CODE), dt, P[i].Mass, lambda_to_dErad); //MRC
+            fflush(stdout);
+        }
+#endif
     double dust_absorption_nonIR = 0;
     for(int k=0; k < N_RT_FREQ_BINS; k++){
 #ifdef RT_CHEM_PHOTOION
@@ -1448,7 +1479,7 @@ double dust_dE_cooling(int i, double Tgas, double Tdust, double* Tdust_fixedpoin
     double Tdust_fixed1_tmp = Tgas + (dust_absorption - dust_emission)/(alpha_gd*lambda_to_dErad + MIN_REAL_NUMBER); // make sure to include term in denominator to protect vs nans
     double Tdust_fixed2_tmp = sqrt(sqrt(DMAX(0,LambdaDust * lambda_to_dErad + dust_absorption)/(fac_emission * kappa_dust_emission + MIN_REAL_NUMBER))); // make sure to include term in denominator and MAX in numerator to protect vs nans
     // PFH: better behavior for 2 above is to bracket with solution for fixed dust absorption, which gives T2 = (T0 == above with Tdust = 0 in LambdaDust, positive-definite) x , where x solves x^4+b*x=1, b=((alpha_gd * lambda_to_dErad)/(fac_emission * kappa_dust_emission * T0^3)), should be dimensionless, for b << 1, x=1, for b >> 1, x->1/b; the above essentially jumps to b->infinity in the latter regime
-    
+
     *Tdust_fixedpoint_1 = DMAX(Tdust_fixed1_tmp, 0); // check against overshoot into negative values
     *Tdust_fixedpoint_2 = DMAX(Tdust_fixed2_tmp, 0); // check against overshoot into negative values
     return result;
@@ -1463,6 +1494,13 @@ double rt_ir_lambdadust(int i, double T){
     if((All.Time==0 )|| (!isfinite(CellP[i].Dust_Temperature))) {Tdust=T;} else {Tdust = DMIN(MAX_DUST_TEMP, CellP[i].Dust_Temperature);}
 
     dE = dE_guess = ROOTFIND_FUNCTION_INNER(Tdust-T);
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) // MRC
+        {                
+            printf("[DEBUGGING - rt_ir_lambdadust - 1500] - ThisTask %d, i %d - T %g, Tdust %g - Tdust_fixedpoint_1 %g, Tdust_fixedpoint_2 %g\n", ThisTask, i, T, Tdust, Tdust_fixedpoint_1, Tdust_fixedpoint_2); //MRC
+            fflush(stdout);
+        }
+#endif
     //if(CellP[i].Dust_Temperature >= MAX_DUST_TEMP && dE > 0) {return 0;}
     if(Tdust_fixedpoint_1 <= 0) {Tdust_fixedpoint_1 = T;} // this means overshot to <0 from dust-gas coupling term, so set to equilibrium with gas temp as a guess
     if(Tdust_fixedpoint_1 > MAX_DUST_TEMP) {Tdust_fixedpoint_1 = MAX_DUST_TEMP;} // cap the guess
@@ -1488,6 +1526,13 @@ double rt_ir_lambdadust(int i, double T){
             if(dE==0){break;}
             scalefac *= 0.9; 
             n_iter++;
+#ifdef CLUSTER_SINK_DEBUG
+            if ((i == 0) && (ThisTask == 0)) // MRC
+                {                
+                    printf("[DEBUGGING - rt_ir_lambdadust - 1520] - ThisTask %d, i %d, niter %i - scalefac %g, dE_upper: %g, dE %g, Tdust %g\n", ThisTask, i, n_iter, scalefac, dE_upper, dE, Tdust); //MRC
+                    fflush(stdout);
+                }
+#endif
         }
         T_lower = Tdust, dE_lower = dE;
     } else {
@@ -1499,9 +1544,23 @@ double rt_ir_lambdadust(int i, double T){
             if(dE==0){break;}
             scalefac *= 1.1; 
             n_iter++;
+#ifdef CLUSTER_SINK_DEBUG
+            if ((i == 0) && (ThisTask == 0)) // MRC
+                {                
+                    printf("[DEBUGGING - rt_ir_lambdadust - 1537] - ThisTask %d, i %d, niter %i - scalefac %g, T_lower %g, dE_lower: %g, dE %g, Tdust %g\n", ThisTask, i, n_iter, scalefac, T_lower, dE_lower, dE, Tdust); //MRC
+                    fflush(stdout);
+                }
+#endif
         }
         T_upper = Tdust, dE_upper = dE;
-    }     
+    }
+#ifdef CLUSTER_SINK_DEBUG     
+    if ((i == 0) && (ThisTask == 0)) // MRC
+    {                
+        printf("[DEBUGGING - rt_ir_lambdadust - 1550] - ThisTask %d, i %d - T %g, Dust_Temperature: %g, T_upper %g, dE_upper %g, dE_lower %g\n", ThisTask, i, T, CellP[i].Dust_Temperature, T_upper, dE_upper, dE_lower); //MRC
+        fflush(stdout);
+    }
+#endif
     if(T_upper>=MAX_DUST_TEMP && dE_upper > 0) {CellP[i].Dust_Temperature = MAX_DUST_TEMP; return 0;}
 
     if(dE_lower * dE_upper > 0) {PRINT_WARNING("Failed to bracket Tdust solution for ID=%lld T=%g T_lower=%g T_upper=%g dE_lower=%g dE_upper=%g\n", (long long)P[i].ID, T, T_lower,T_upper, dE_lower, dE_upper);}
@@ -1512,10 +1571,22 @@ double rt_ir_lambdadust(int i, double T){
         double ROOTFIND_REL_X_tol = dTdust_tol, ROOTFIND_ABS_X_tol=0.;
         #include "../system/bracketed_rootfind.h"
         Tdust = ROOTFIND_X_new+T;
+#ifdef CLUSTER_SINK_DEBUG
+        if ((i == 0) && (ThisTask == 0)) { // MRC
+            printf("[DEBUGGING - rt_ir_lambdadust - 1548] - ThisTask %d, i %d - T %g, T_lower %g, T_upper %g - ROOTFIND_X_a %g, ROOTFIND_X_b %g - ROOTFUNC_a %g, ROOTFUNC_b %g - ROOTFIND_REL_X_tol %g, ROOTFIND_ABS_X_tol %g - ROOTFIND_X_new %g - Dust_Temperature: %g\n", ThisTask, i, T, T_lower, T_upper, ROOTFIND_X_a, ROOTFIND_X_b, ROOTFUNC_a, ROOTFUNC_b, ROOTFIND_REL_X_tol, ROOTFIND_ABS_X_tol, ROOTFIND_X_new, CellP[i].Dust_Temperature); //MRC
+            fflush(stdout);
+        }
+#endif
     }
     double LambdaDust = gas_dust_heating_coeff(i,T,Tdust) * (T-Tdust);
     CellP[i].Lambda_RadiativeCooling_toRHDBins[RT_FREQ_BIN_INFRARED] += LambdaDust;
     CellP[i].Dust_Temperature = Tdust;
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) { // MRC
+        printf("[DEBUGGING - rt_ir_lambdadust - 1557] - ThisTask %d, i %d - T %g, Tdust %g - Dust_Temperature: %g, T_upper %g, dE_upper %g, dE_lower %g, LambdaDust %g, \n", ThisTask, i, T, Tdust, CellP[i].Dust_Temperature, T_upper, dE_upper, dE_lower, LambdaDust); //MRC
+        fflush(stdout);
+    }
+#endif
     return LambdaDust;
 }
 
@@ -1561,8 +1632,22 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate)
     double Tmax=1e10; // upper-bound dust temperature above which we definitely don't believe our detailed (tiny) dust abundance
     Tmax = MAX_DUST_TEMP; // this is now a global variable
     /* First we come up with a reasonable guess for the dust temp based on available info */
+
 #ifdef RT_INFRARED
     Tdust_guess = DMIN(DMAX(CellP[i].Dust_Temperature, 1.), MAX_DUST_TEMP); // previous dust temperature should be a good guess
+
+#ifdef CLUSTER_SINK_DEBUG
+    if((i == 0) && (ThisTask == 0)) // MRC
+    {
+        fflush(stdout);
+        printf("[DEBUGGING - rt_eqm_dust_temp - 1573] ThisTask %d, i %d - CellP[i].Dust_Temperature %g, MAX_DUST_TEMP %g, Tdust_guess %g\n", ThisTask, i, CellP[i].Dust_Temperature, MAX_DUST_TEMP, Tdust_guess); //MRC
+        fflush(stdout);
+        printf("[DEBUGGING - rt_eqm_dust_temp 1604] ThisTask %d, i %d - Dust_Temperature %g - Rad_E_gamma [%g, %g, %g, %g, %g] - T %g - dust_absorption_rate %g\n", 
+            ThisTask, i, CellP[i].Dust_Temperature, CellP[i].Rad_E_gamma[RT_FREQ_BIN_H0], CellP[i].Rad_E_gamma[RT_FREQ_BIN_PHOTOELECTRIC], CellP[i].Rad_E_gamma[RT_FREQ_BIN_NUV], CellP[i].Rad_E_gamma[RT_FREQ_BIN_OPTICAL_NIR], CellP[i].Rad_E_gamma[RT_FREQ_BIN_INFRARED], T, dust_absorption_rate);
+        fflush(stdout);
+    }
+#endif
+
 #else // case where we don't have a pre-computed dust temp, use asymptotic limits to get a good guess
     double Zfac = 1.0;
 #ifdef METALS
@@ -1585,7 +1670,14 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate)
     int n_iter=0;
     double fdustmet_init = return_dust_to_metals_ratio_vs_solar(i,Tdust); /* need this for reference but can't let it change over iterations */
     dEdt_guess = dEdt = dust_dEdt(i,T,Tdust_guess,dust_absorption_rate,fdustmet_init);
-    
+        
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) {
+        printf("[DEBUGGING - rt_eqm_dust_temp - 1593] - ThisTask %d, i %d, T %g, dust_absorption_rate %g, Tdust_guess %g, dEdt_guess %g, dEdt %g\n", ThisTask, i, T, dust_absorption_rate, Tdust_guess, dEdt_guess, dEdt); //MRC
+        fflush(stdout);
+    }
+#endif
+
     if(dEdt==0){return Tdust_guess;}
     /* bracketing the dust temperature */
     if(dEdt < 0)
@@ -1618,6 +1710,14 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate)
 	    if(n_iter >= MAXITER && dEdt > 0) {PRINT_WARNING("Dust temperature bracketing (heating side) failed to converge: ID=%lld iter=%d T=%g Tdust=%g dEdt=%g.\n",(long long)P[i].ID,n_iter,T,Tdust,dEdt); return DMIN(Tdust,Tmax);}
 	    T_upper = Tdust, dEdt_upper = dEdt;
     }
+
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) {
+        printf("[DEBUGGING - rt_eqm_dust_temp - 1637] - ThisTask %d i %d, T_upper %g, dEdt_upper %g, Tdust %g, T_lower %g\n", ThisTask, i, T_upper, dEdt_upper, Tdust, T_lower); //MRC
+       fflush(stdout);
+    }
+#endif
+
     if(T_upper==Tmax && dEdt_upper > 0) {return Tmax;}
     if(T_lower>=Tmax) {return Tmax;}
 
