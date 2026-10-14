@@ -109,6 +109,28 @@ FINCL =
 
 
 #----------------------------------------------------------------------------------------------
+ifeq ($(SYSTYPE),"nibi")
+  # Linux cluster located at the University of Waterloo (Canada)
+  # https://docs.alliancecan.ca/wiki/Nibi
+  CC       =  mpicc 
+  CXX      = mpicxx -std=c++17
+  FC       = mpif90 -nofor_main
+  OPTIMIZE = -O3 -mavx -g #-ggdb -xCORE-AVX2 -Wno-unknown-pragmas -Wall -Wno-format-security -qopenmp
+  ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
+    OPTIMIZE += -parallel -openmp  # openmp required compiler flags
+  endif
+  GSL_INCL = -I$(EBROOTGSL)/include
+  GSL_LIBS = -L$(EBROOTGSL)/lib -lgsl
+  FFTW_INCL= -I$(EBROOTIMKL)/mkl/include
+  FFTW_LIBS= -L$(EBROOTIMKL)/mkl/lib
+  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi
+  HDF5INCL = -I$(HDF5_DIR)/include -DH5_USE_16_API
+  HDF5LIB  = -L$(HDF5_DIR)/lib -lhdf5 -lgfortran -lz
+  OPT     += -DX86FIX
+  CXXFLAGS = $(CFLAGS)
+  LINKER=$(CXX)
+endif
+
 ifeq ($(SYSTYPE),"Frontera")
 CC       =  mpicc
 CXX      =  mpicxx -std=c++17
