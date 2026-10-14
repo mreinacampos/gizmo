@@ -1660,7 +1660,7 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate, struct par
 	    Tdust *= scalefac; Tdust = DMAX(Tdust,Tdust_floor);
 	    dEdt = dust_dEdt(i,T,Tdust,dust_absorption_rate,fdustmet_init, pp, cell);
         if(dEdt==0){return Tdust;}
-	    scalefac *= 0.9; 
+	    scalefac *= 0.9;
 	    n_iter++;
 	}
 	if(dEdt < 0)
@@ -1679,12 +1679,12 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate, struct par
 	    Tdust *= scalefac; Tdust = DMIN(Tdust,Tmax);
 	    dEdt = dust_dEdt(i,T,Tdust,dust_absorption_rate,fdustmet_init, pp, cell);
         if(dEdt==0){return Tdust;}
-	    scalefac *= 1.1; 
+	    scalefac *= 1.1;
 	    n_iter++;
 	    }
 	    if(n_iter >= MAXITER && dEdt > 0) {PRINT_WARNING("Dust temperature bracketing (heating side) failed to converge: ID=%lld iter=%d T=%g Tdust=%g dEdt=%g", (long long)pp[i].ID, n_iter, T, Tdust, dEdt);}
 	    T_upper = Tdust, dEdt_upper = dEdt;
-    }     
+    }
     if(T_upper==Tmax && dEdt_upper > 0) {return Tmax;}
     if(T_lower>=Tmax) {return Tmax;}
 

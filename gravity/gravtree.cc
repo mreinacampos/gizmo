@@ -7,6 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <gsl/gsl_eigen.h>
+#include <vector>
 #include "../declarations/allvars.h"
 #include "../core/proto.h"
 #include "../mesh/kernel.h"
@@ -157,10 +158,10 @@ void gravity_tree(void)
        by the tree walk (raw GravAccel, raw GravJerk) to incorrectly take the jerk-skip path (which
        expects G-multiplied GravAccel/GravJerk from a previous step). */
 #ifdef ADAPTIVE_TREEFORCE_UPDATE
-    std::vector<int> treeforce_skip_flag(ActiveParticleList.size(), 0);
-    for(int ii = 0; ii < (int)ActiveParticleList.size(); ii++) {
+    std::vector<int> treeforce_skip_flag(All.MaxPart, 0);
+    for(int ii = 0; ii < ActiveParticleNumber; ii++) {
         int i = ActiveParticleList[ii];
-        if(!needs_new_treeforce(i)) {treeforce_skip_flag[ii] = 1;}
+        if(!needs_new_treeforce(i)) {treeforce_skip_flag[i] = 1;}
     }
 #endif
 

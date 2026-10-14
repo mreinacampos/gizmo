@@ -160,9 +160,9 @@
 #define GALSF_FB_FIRE_RT_HIIHEATING         /*! gas within HII regions around young stars is photo-heated to 10^4 K - local stromgren approximation */
 #define GALSF_FB_FIRE_RT_LOCALRP            /*! turn on local radiation pressure coupling to gas - account for local multiple-scattering and isotropic local absorption */
 #define GALSF_FB_FIRE_RT_LONGRANGE          /*! continuous acceleration from starlight (uses luminosity tree) to propagate FIRE RT */
+#if !defined(GALSF_FB_FIRE_AGE_TRACERS)
+#define GALSF_FB_FIRE_AGE_TRACERS 16        /*! enrichment-age-tracer model, tracks a set of passive scalars corresponding to stellar ages for modeling metal enrichment in postprocessing */
 #endif
-#define GALSF_FB_FIRE_AGE_TRACERS 16        /*! tracks a set of passive scalars corresponding to stellar ages for chemical evolution model postprocessing */
-
 #if !(defined(ADAPTIVE_GRAVSOFT_FORGAS) || defined(ADAPTIVE_GRAVSOFT_FORALL))
 #define ADAPTIVE_GRAVSOFT_FORGAS            /*! default choice is adaptive force softening for gas, but not stars [since ambiguously defined] */
 #endif
@@ -1261,6 +1261,20 @@
 #endif
 #endif
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR // tag-derived nuclear-zoom anchor: slot 0 of SpecialParticle_Position_ForRefinement comes from IC-tagged particles instead of a Type-3 special particle. requires SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM (it reuses that module's SpecialParticle refinement array), which is enforced naturally since the producer writes to that NUCLEAR_ZOOM-gated array.
+#if !(CHECK_IF_PREPROCESSOR_HAS_NUMERICAL_VALUE_(SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR)) // 1 = mass-weighted COM of tagged particles (default); 2 = lock onto densest tagged particle
+#undef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+#define SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR (1)
+#endif
+#endif
+
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR // tag-derived nuclear-zoom anchor: slot 0 of SpecialParticle_Position_ForRefinement comes from IC-tagged particles instead of a Type-3 special particle. requires SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM (it reuses that module's SpecialParticle refinement array), which is enforced naturally since the producer writes to that NUCLEAR_ZOOM-gated array.
+#if !(CHECK_IF_PREPROCESSOR_HAS_NUMERICAL_VALUE_(SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR)) // 1 = mass-weighted COM of tagged particles (default); 2 = lock onto densest tagged particle
+#undef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+#define SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR (1)
+#endif
+#endif
+
 #if defined(SINK_WIND_SPAWN) && !defined(WAKEUP_REVERSE_KICK_ON_DEMOTION) && !defined(WAKEUP_TRUNCATE_STEP_ON_DEMOTION)
 #define WAKEUP_TRUNCATE_STEP_ON_DEMOTION // the WAKEUP kick reversal injects energy and only fires with spawned cells present, so truncate the step instead whenever we are spawning. must come after every SINK_WIND_SPAWN derivation above. WAKEUP_REVERSE_KICK_ON_DEMOTION opts back out
 #endif
@@ -1283,5 +1297,4 @@
 #if (defined(SINGLE_STAR_FB_JETS) || defined(SINGLE_STAR_FB_WINDS)) && !defined(MERGE_SPLIT_ALLOW_KINETIC_DISSIPATION) && !defined(MERGE_SPLIT_LIMIT_KINETIC_DISSIPATION)
 #define MERGE_SPLIT_LIMIT_KINETIC_DISSIPATION // the shock-side counterpart: never merge a pair whose merge would thermalize the majority of the energy involved, which cooling then radiates away, making the merge an artificial unresolved shock. MERGE_SPLIT_ALLOW_KINETIC_DISSIPATION opts back out
 #endif
-
 

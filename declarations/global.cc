@@ -164,5 +164,99 @@ int is_particle_a_special_zoom_target(int i)
 #endif
 
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+/* Producer for the tag-derived nuclear-zoom anchor: computes the refinement-region center from the
+   set of IC-tagged particles (P[i].Refinement_Flag==1) and writes it into slot 0 of the SSOT array
+   All.SpecialParticle_Position_ForRefinement, which every downstream consumer (merge/split mass
+   targeting, gravity boundaries, RT source placement, sink machinery) already reads. This REPLACES
+   the Type-3 special-particle producer for slot 0; all consumers are unchanged. Called once per
+   timestep from find_timesteps(). Mode 1 (default) = mass-weighted COM of all tagged particles;
+   mode 2 = position of the single densest tagged gas cell. All ranks call it (global reduction);
+   every rank ends with an identical slot-0 value. */
+void update_tag_anchor_refinement_center(void)
+{
+    int i, k;
+#if (SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR == 2)
+    /* lock onto the single densest tagged gas cell (Type 0) */
+    struct {double dens; int rank;} local_max, global_max;
+    local_max.dens = -MAX_REAL_NUMBER; local_max.rank = ThisTask;
+    double best_pos_local[3]={0,0,0};
+    for(i=0; i<NumPart; i++) {if(P[i].Refinement_Flag==1 && P[i].Type==0 && P[i].Mass>0) {if(CellP[i].Density > local_max.dens) {local_max.dens = CellP[i].Density; best_pos_local[0]=P[i].Pos[0]; best_pos_local[1]=P[i].Pos[1]; best_pos_local[2]=P[i].Pos[2];}}}
+    MPI_Allreduce(&local_max, &global_max, 1, MPI_DOUBLE_INT, MPI_MAXLOC, MPI_COMM_WORLD); /* find rank holding the global densest tagged cell */
+    double best_pos_global[3]={0,0,0};
+    if(ThisTask == global_max.rank) {for(k=0;k<3;k++) {best_pos_global[k]=best_pos_local[k];}}
+    MPI_Bcast(best_pos_global, 3, MPI_DOUBLE, global_max.rank, MPI_COMM_WORLD); /* broadcast its position to all ranks */
+    if(global_max.dens > -MAX_REAL_NUMBER/2.) {for(k=0;k<3;k++) {All.SpecialParticle_Position_ForRefinement[0][k] = best_pos_global[k];}} /* only update if at least one tagged cell exists */
+#else
+    /* mass-weighted center of mass of all tagged particles */
+    double sum_m_local=0, sum_mx_local[3]={0,0,0}, sum_m_global=0, sum_mx_global[3]={0,0,0};
+    for(i=0; i<NumPart; i++) {if(P[i].Refinement_Flag==1 && P[i].Mass>0) {sum_m_local += P[i].Mass; for(k=0;k<3;k++) {sum_mx_local[k] += P[i].Mass * P[i].Pos[k];}}}
+    MPI_Allreduce(&sum_m_local, &sum_m_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(sum_mx_local, sum_mx_global, 3, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    if(sum_m_global > 0) {for(k=0;k<3;k++) {All.SpecialParticle_Position_ForRefinement[0][k] = sum_mx_global[k] / sum_m_global;}} /* only update if any tagged particles exist */
+#endif
+}
+#endif
 
+
+
+/* timestep dilation factor for computing quantities in zoom-in runs with variable extreme dynamic range */
+double return_timestep_dilation_factor(int i, int mode)
+{
+#if !defined(USE_TIMESTEP_DILATION_FOR_ZOOMS)
+    return 1;
+#else
+    
+    if(All.Time <= All.TimeBegin) {return 1;}
+    if(i < 0) {return 1;}
+#ifdef DILATION_FOR_STELLAR_KINEMATICS_ONLY
+    if(mode != 0) {return 1;}
+#ifdef SPECIAL_POINT_WEIGHTED_MOTION
+    if(P[i].Type != 4 && P[i].Type != SPECIAL_POINT_TYPE_FOR_NODE_DISTANCES) {return 1;} /* only do cosmological 'stars' type -and- the special smoothing-source-types */
+#else
+    if(P[i].Type != 4) {return 1;} /* only do cosmological 'stars' type */
+#endif
+#endif
+    
+    /* now specify some dilation factor a(r) or otherwise */
+    double a = 1;
+    
+#ifdef SPECIAL_POINT_WEIGHTED_MOTION
+    double r = P[i].Min_Distance_to_Sink;
+    if(P[i].Type == SPECIAL_POINT_TYPE_FOR_NODE_DISTANCES) {r = 0;}
+    double wt = weight_function_for_weighted_motion_smoothing(r, 0);
+    if(wt > 0 && wt < 1) {a = 1. / wt;}
+#endif
+
+#if defined(SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM)
+    double fac_amax = 100.;
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_SPECIALBOUNDARIES
+#if (SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_SPECIALBOUNDARIES >= 3)
+    fac_amax = 1.e6;
+#endif
+#endif
+    double amax = fac_amax;
+    double r_amax = fac_amax * All.ForceSoftening[3]; // modify as needed
+    double index = 1;
+    int j, k; double rmin = MAX_REAL_NUMBER, r=0; a=1;
+    for(j=0;j<SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM;j++)
+    {
+        double p0[3]={0}, dp[3]={0}, r2=0, pos_i[3];
+        for(k=0;k<3;k++) {p0[k] = All.SpecialParticle_Position_ForRefinement[j][k];}
+        if(mode==0) {for(k=0;k<3;k++) {pos_i[k]=P[i].Pos[k];}} /* the reference index refers to a real particle */
+            else {for(k=0;k<3;k++) {pos_i[k]=Nodes[i].u.d.s[k];}} /* the reference index refers to a node or pseudo-particle */
+        for(k=0;k<3;k++) {dp[k] = All.cf_atime*(pos_i[k] - p0[k]); r2 += dp[k]*dp[k];}
+        r = sqrt(r2); if(r < rmin) {rmin = r;}
+    }
+    r = rmin;
+#if (SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_SPECIALBOUNDARIES >= 3)
+    if(mode==0) {r = sqrt(P[i].Pos[0]*P[i].Pos[0] + P[i].Pos[1]*P[i].Pos[1] + P[i].Pos[2]*P[i].Pos[2]);}
+#endif
+    if(r < 1.e-10 || isnan(r) || isfinite(r)==0) {r = 1.e-10;}
+    a = 1. + 1. / (1./amax + pow(r / r_amax, index));
+#endif
+    
+    return 1. / a;
+#endif
+}
 
