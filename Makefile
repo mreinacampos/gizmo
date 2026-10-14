@@ -126,8 +126,8 @@ ifeq ($(SYSTYPE),"nibi-debug")
   # Debugging mode
   # https://docs.alliancecan.ca/wiki/Nibi
   CC       =  mpicc -O0 -g -ggdb
-  CXX      = mpicxx 
-  FC       = mpif90
+  CXX      = mpicxx -std=c++17
+  FC       = mpif90 -nofor_main
   OPTIMIZE = -Wall -Wno-unused-but-set-variable -Wno-uninitialized -Wno-format-security -Wno-unused-result
   ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
     OPTIMIZE += -parallel -openmp  # openmp required compiler flags
@@ -136,7 +136,7 @@ ifeq ($(SYSTYPE),"nibi-debug")
   GSL_LIBS = -L$(EBROOTGSL)/lib -lgsl
   FFTW_INCL= -I$(EBROOTIMKL)/mkl/include
   FFTW_LIBS= -L$(EBROOTIMKL)/mkl/lib
-  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi_cxx
+  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi
   HDF5INCL = -I$(HDF5_DIR)/include -DH5_USE_16_API
   HDF5LIB  = -L$(HDF5_DIR)/lib -lhdf5 -lgfortran -lz
   OPT     += -DX86FIX

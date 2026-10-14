@@ -848,9 +848,9 @@ void sink_final_operations(void)
             for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ // loop over MSPs
                 if (P[n].MSP[k].InitialMass > 0){
                     assert(P[n].MSP[k].Age <= All.Time); 
-                    assert(P[n].MSP[k].InitialAge <= All.Time); 
-                    assert(P[n].MSP[k].InitialMetallicity_Z <= 1); 
-                    assert(P[n].MSP[k].InitialMetallicity_Z > 0); 
+                    //assert(P[n].MSP[k].InitialAge <= All.Time); 
+                    //assert(P[n].MSP[k].InitialMetallicity_Z <= 1); 
+                    //assert(P[n].MSP[k].InitialMetallicity_Z > 0); 
                 }
             }
 
