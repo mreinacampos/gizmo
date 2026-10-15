@@ -159,7 +159,7 @@ void gravity_tree(void)
        expects G-multiplied GravAccel/GravJerk from a previous step). */
 #ifdef ADAPTIVE_TREEFORCE_UPDATE
     std::vector<int> treeforce_skip_flag(All.MaxPart, 0);
-    for(int ii = 0; ii < ActiveParticleNumber; ii++) {
+    for(int ii = 0; ii < (int)ActiveParticleList.size(); ii++) {
         int i = ActiveParticleList[ii];
         if(!needs_new_treeforce(i)) {treeforce_skip_flag[i] = 1;}
     }
