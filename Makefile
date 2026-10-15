@@ -109,6 +109,33 @@ FINCL =
 
 
 #----------------------------------------------------------------------------------------------
+ifeq ($(SYSTYPE),"Trillium")
+CC = mpicc
+OPTIMIZE = -O3 -funroll-loops  -march=native -funroll-loops
+#OPTIMIZE += -g -Wall # Uncomment for debugging.
+ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
+OPTIMIZE += -fopenmp # openmp required compiler flags
+endif
+FC =  mpifort #mpif90 -nofor_main
+GSL_INCL =  -I${EBROOTGSL}/include
+GSL_LIBS =  -L${EBROOTGSL}/lib -lgsl -lgslcblas
+FFTW_INCL=  -I${EBROOTFFTWMPI}/include
+FFTW_LIBS=  -L${EBROOTFFTWMPI}/lib -lfftw3 -lfftw3_omp
+MPICHLIB =
+HDF5INCL =  -I${EBROOTHDF5}/include -DH5_USE_16_API
+HDF5LIB  =  -L${EBROOTHDF5}/lib -lhdf5 -lz
+OPT += -DUSE_MPI_IN_PLACE -DHDF5_DISABLE_VERSION_CHECK
+ifneq (USE_FFTW3, $(findstring USE_FFTW3, $(CONFIGVARS)))
+    OPT += -DUSE_FFTW3
+endif
+##
+## Notes [Vasilii Pustovoit]:
+##
+## As of August 2025 it seems that the following way of loading the modules works:
+## module load StdEnv/2023 gcc/12.3 openmpi/4.1.5 fftw-mpi/3.3.10 gsl/2.7 hdf5/1.14.2
+## No performance tests for now
+endif
+
 ifeq ($(SYSTYPE),"nibi")
   # Linux cluster located at the University of Waterloo (Canada)
   # https://docs.alliancecan.ca/wiki/Nibi
