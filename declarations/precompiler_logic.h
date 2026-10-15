@@ -160,6 +160,7 @@
 #define GALSF_FB_FIRE_RT_HIIHEATING         /*! gas within HII regions around young stars is photo-heated to 10^4 K - local stromgren approximation */
 #define GALSF_FB_FIRE_RT_LOCALRP            /*! turn on local radiation pressure coupling to gas - account for local multiple-scattering and isotropic local absorption */
 #define GALSF_FB_FIRE_RT_LONGRANGE          /*! continuous acceleration from starlight (uses luminosity tree) to propagate FIRE RT */
+#endif
 #if !defined(GALSF_FB_FIRE_AGE_TRACERS)
 #define GALSF_FB_FIRE_AGE_TRACERS 16        /*! enrichment-age-tracer model, tracks a set of passive scalars corresponding to stellar ages for modeling metal enrichment in postprocessing */
 #endif
