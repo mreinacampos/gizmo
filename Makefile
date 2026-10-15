@@ -806,8 +806,9 @@ $(EXEC): $(OBJS)
 $(OBJS): %.o: %.cc $(INCL) $(CONFIG) compile_time_info.cc
 	$(CXX) $(CFLAGS) -c $< -o $@
 
-#$(FOBJS): %.o: %.f90
-#	$(FC) $(OPTIMIZE) -c $< -o $@
+# uncommented by MRC
+$(FOBJS): %.o: %.f90
+	$(FC) $(OPTIMIZE) -c $< -o $@
 
 compile_time_info.cc: $(CONFIG)
 	$(PERL) file_io/prepare-config.perl $(CONFIG)
