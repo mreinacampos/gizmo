@@ -116,7 +116,7 @@ OPTIMIZE = -O3 -funroll-loops  -march=native -funroll-loops
 ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
 OPTIMIZE += -fopenmp # openmp required compiler flags
 endif
-FC =  mpif90
+FC =  mpifort #mpif90 -nofor_main
 GSL_INCL =  -I${EBROOTGSL}/include
 GSL_LIBS =  -L${EBROOTGSL}/lib -lgsl -lgslcblas
 FFTW_INCL=  -I${EBROOTFFTWMPI}/include
@@ -778,8 +778,9 @@ $(EXEC): $(OBJS)
 $(OBJS): %.o: %.cc $(INCL) $(CONFIG) compile_time_info.cc
 	$(CXX) $(CFLAGS) -c $< -o $@
 
-#$(FOBJS): %.o: %.f90
-#	$(FC) $(OPTIMIZE) -c $< -o $@
+# uncommented by MRC
+$(FOBJS): %.o: %.f90
+	$(FC) $(OPTIMIZE) -c $< -o $@
 
 compile_time_info.cc: $(CONFIG)
 	$(PERL) file_io/prepare-config.perl $(CONFIG)

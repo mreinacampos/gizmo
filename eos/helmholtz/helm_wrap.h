@@ -12,6 +12,7 @@
 #ifndef EOS_HELM_WRAP_H
 #define EOS_HELM_WRAP_H
 
+extern "C" {
 void helm_read_table_c(
         char const * tab_file_name);
 
@@ -56,7 +57,7 @@ void helm_eos_e_c(
         double * csound,
         double * dedt,
         int * eosfail);
-
+}
 #endif
 
 #endif // top-level flag
