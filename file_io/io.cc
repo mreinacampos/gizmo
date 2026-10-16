@@ -1883,6 +1883,175 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 #endif
         break;
 
+    case IO_CLUSTER_SINK_NUMSNE:        /* cumulative number of SNe */
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].CumNumSNe;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_NUMSNII:        /* cumulative number of SNII */
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].CumNumSNII;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_NUMSNIa:        /* cumulative number of SNIa */
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].CumNumSNIa;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_MLRATIO:        /* mass-to-light ratio */
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].Light_MassRatio;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break; 
+
+    case IO_CLUSTER_SINK_TOTALLUM:        /* total luminosity in each band ratio */
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<N_RT_FREQ_BINS;k++) {fp[k] = (MyOutputFloat) P[pindex].TotalLuminosity[k];}
+                fp += N_RT_FREQ_BINS;
+                n++;
+            }
+        }
+#endif
+        break; 
+
+    case IO_CLUSTER_SINK_ALPHAVIR:        /* virial parameter of SFing gas */
+#ifdef CLUSTER_SINK_OUTPUT_SFINGPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                *fp++  = (MyOutputFloat) CellP[pindex].SFing_AlphaVir;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_VDISP:        /* velocity dispersion of SFing gas */
+#ifdef CLUSTER_SINK_OUTPUT_SFINGPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                *fp++  = (MyOutputFloat) CellP[pindex].SFing_VDisp;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_MSPPROPS_MASS:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].Mass;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].InitialMass;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].InitialRh;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_MSPPROPS_AGE:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].Age;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {
+                    for(int j=0;j<NUM_METAL_SPECIES;j++) {
+                        fp[k*NUM_METAL_SPECIES+j] = (MyOutputFloat) P[pindex].MSP[k].Metallicity[j];
+                    }
+                }
+                fp += CLUSTER_SINK_NUMMSP*NUM_METAL_SPECIES;
+                n++;
+            }
+        }
+#endif
+        break;
+
+    case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].InitialAge;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+    case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:        /* properties of the multiple stellar populations */
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+        for(n = 0; n < pc; pindex++){
+            if(P[pindex].Type == type){
+                for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {fp[k] = (MyOutputFloat) P[pindex].MSP[k].InitialMetallicity_Z;}
+                fp += CLUSTER_SINK_NUMMSP;
+                n++;
+            }
+        }
+#endif
+        break;
+
         case IO_LASTENTRY:
             endrun(213);
             break;
@@ -2036,6 +2205,8 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
         case IO_DENS_AROUND_STAR:
         case IO_DELAY_TIME_HII:
         case IO_MOLECULARFRACTION:
+        case IO_CLUSTER_SINK_ALPHAVIR:
+        case IO_CLUSTER_SINK_VDISP:
             if(mode)
                 bytes_per_blockelement = sizeof(MyInputFloat);
             else
@@ -2218,6 +2389,41 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
                 bytes_per_blockelement = 9 * sizeof(MyOutputFloat);
             break;
 
+        case IO_CLUSTER_SINK_NUMSNE:
+        case IO_CLUSTER_SINK_NUMSNII:
+        case IO_CLUSTER_SINK_NUMSNIa:
+        case IO_CLUSTER_SINK_MLRATIO:
+        case IO_CLUSTER_SINK_MSPPROPS_MASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
+        case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+#ifdef CLUSTER_SINK
+            if(mode)
+                bytes_per_blockelement = (CLUSTER_SINK_NUMMSP) * sizeof(MyInputFloat);
+            else
+                bytes_per_blockelement = (CLUSTER_SINK_NUMMSP) * sizeof(MyOutputFloat);
+#endif
+            break;            
+        case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
+#ifdef CLUSTER_SINK
+            if(mode)
+                bytes_per_blockelement = (CLUSTER_SINK_NUMMSP*NUM_METAL_SPECIES) * sizeof(MyInputFloat);
+            else
+                bytes_per_blockelement = (CLUSTER_SINK_NUMMSP*NUM_METAL_SPECIES) * sizeof(MyOutputFloat);
+#endif
+            break;
+
+        case IO_CLUSTER_SINK_TOTALLUM:
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+            if(mode)
+                bytes_per_blockelement = (N_RT_FREQ_BINS) * sizeof(MyInputFloat);
+            else
+                bytes_per_blockelement = (N_RT_FREQ_BINS) * sizeof(MyOutputFloat);
+#endif
+            break; 
+
         case IO_LASTENTRY:
             endrun(214);
             break;
@@ -2387,6 +2593,8 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_DENS_AROUND_STAR:
         case IO_DELAY_TIME_HII:
         case IO_MOLECULARFRACTION:
+        case IO_CLUSTER_SINK_ALPHAVIR:
+        case IO_CLUSTER_SINK_VDISP:
             values = 1;
             break;
 
@@ -2506,6 +2714,31 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_EOS_STRESS_TENSOR:
             values = 9;
             break;
+
+        case IO_CLUSTER_SINK_NUMSNE:
+        case IO_CLUSTER_SINK_NUMSNII:
+        case IO_CLUSTER_SINK_NUMSNIa:
+        case IO_CLUSTER_SINK_MLRATIO:
+        case IO_CLUSTER_SINK_MSPPROPS_MASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
+        case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+#ifdef CLUSTER_SINK
+            values = CLUSTER_SINK_NUMMSP;
+#endif
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
+#ifdef CLUSTER_SINK
+            values = CLUSTER_SINK_NUMMSP*NUM_METAL_SPECIES;
+#endif
+            break;
+        case IO_CLUSTER_SINK_TOTALLUM:
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+            values = N_RT_FREQ_BINS;
+#endif
+            break;            
 
         case IO_LASTENTRY:
             endrun(215);
@@ -2668,6 +2901,8 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_SHOCKMACHNUM:
         case IO_DUSTCHEMGRAINBINNUMBERS:
         case IO_DUSTCHEMGRAINBINMASS:
+        case IO_CLUSTER_SINK_ALPHAVIR:
+        case IO_CLUSTER_SINK_VDISP:
             for(i = 1; i < 6; i++) {typelist[i] = 0;}
             return ngas;
             break;
@@ -2702,6 +2937,22 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
 
         case IO_IMF:
             for(i = 1; i < 6; i++) {if(i != 4 && i != 5) {typelist[i] = 0;}}
+            return nstars + header.npart[5];
+            break;
+
+        case IO_CLUSTER_SINK_NUMSNE:
+        case IO_CLUSTER_SINK_NUMSNII:
+        case IO_CLUSTER_SINK_NUMSNIa:
+        case IO_CLUSTER_SINK_MLRATIO:
+        case IO_CLUSTER_SINK_TOTALLUM:
+        case IO_CLUSTER_SINK_MSPPROPS_MASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
+        case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+        case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
+            for(i = 0; i < 6; i++) {if((i != 4) && (i != 5)) {typelist[i] = 0;}}
             return nstars + header.npart[5];
             break;
 
@@ -3178,6 +3429,10 @@ int blockpresent(enum iofields blocknr)
             break;
 
         case IO_ACRB:
+#ifdef CLUSTER_SINK_OUTPUT_ACCRETION_LENGTH
+            return 1;
+#endif      
+            break;
         case IO_SINKRAD:
 #ifdef SINK_GRAVCAPTURE_FIXEDSINKRADIUS
             return 1;
@@ -3399,6 +3654,40 @@ int blockpresent(enum iofields blocknr)
             return 1;
 #endif
             break;
+
+        case IO_CLUSTER_SINK_NUMSNE:
+        case IO_CLUSTER_SINK_NUMSNII:
+        case IO_CLUSTER_SINK_NUMSNIa:
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+            return 1;
+#endif
+            break;
+
+        case IO_CLUSTER_SINK_MLRATIO:
+        case IO_CLUSTER_SINK_TOTALLUM:
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+            return 1;
+#endif
+            break;
+
+        case IO_CLUSTER_SINK_ALPHAVIR:
+        case IO_CLUSTER_SINK_VDISP:
+#ifdef CLUSTER_SINK_OUTPUT_SFINGPROPS
+            return 1;
+#endif
+            break;
+
+        case IO_CLUSTER_SINK_MSPPROPS_MASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
+        case IO_CLUSTER_SINK_MSPPROPS_AGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+        case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
+#ifdef CLUSTER_SINK_OUTPUT_MSPPROPS
+            return 1;
+#endif
+            break;            
 
         case IO_LASTENTRY: /* will not occur */
             break;
@@ -3676,7 +3965,7 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
             break;
         case IO_SINK_FORM_MASS:
             strncpy(label, "SMAS", 4);
-            break;	    
+            break;	   
         case IO_SINKMDOT:
             strncpy(label, "BHMD", 4);
             break;
@@ -3826,6 +4115,48 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
             break;
         case IO_DYNERRORDEFAULT:
             strncpy(label, "derd", 4);
+            break;
+        case IO_CLUSTER_SINK_NUMSNE:
+            strncpy(label, "nsne", 4);
+            break;
+        case IO_CLUSTER_SINK_NUMSNII:
+            strncpy(label, "nsii", 4);
+            break;
+        case IO_CLUSTER_SINK_NUMSNIa:
+            strncpy(label, "nsia", 4);
+            break;
+        case IO_CLUSTER_SINK_MLRATIO:
+            strncpy(label, "lssp", 4);
+            break;
+        case IO_CLUSTER_SINK_TOTALLUM:
+            strncpy(label, "totl", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_MASS:
+            strncpy(label, "mspm", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
+            strncpy(label, "mspi", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
+            strncpy(label, "mspr", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_AGE:
+            strncpy(label, "mspa", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+            strncpy(label, "msia", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+            strncpy(label, "msiz", 4);
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
+            strncpy(label, "mspz", 4);
+            break;
+        case IO_CLUSTER_SINK_ALPHAVIR:
+            strncpy(label, "avir", 4);
+            break;
+        case IO_CLUSTER_SINK_VDISP:
+            strncpy(label, "vdisp", 4);
             break;
 
         case IO_LASTENTRY:
@@ -4118,7 +4449,7 @@ void get_dataset_name(enum iofields blocknr, char *buf)
             break;
         case IO_SINK_FORM_MASS:
             strcpy(buf, "Sink_InitialMass");
-            break;	    
+            break;	   
         case IO_SINKMDOT:
             strcpy(buf, "Sink_Mdot");
             break;
@@ -4251,6 +4582,48 @@ void get_dataset_name(enum iofields blocknr, char *buf)
         case IO_DYNERRORDEFAULT:
             strcpy(buf, "DynamicErrorDefault");
             break;
+        case IO_CLUSTER_SINK_NUMSNE:
+            strcpy(buf, "ClusterSink_MSPs_CumNumSNe");
+            break;
+        case IO_CLUSTER_SINK_NUMSNII:
+            strcpy(buf, "ClusterSink_MSPs_CumNumSNII");
+            break;
+        case IO_CLUSTER_SINK_NUMSNIa:
+            strcpy(buf, "ClusterSink_MSPs_CumNumSNIa");
+            break;
+        case IO_CLUSTER_SINK_MLRATIO:
+            strcpy(buf, "ClusterSink_MSPs_LightMassRatio");
+            break;
+        case IO_CLUSTER_SINK_TOTALLUM:
+            strcpy(buf, "ClusterSink_TotalLuminosity");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_MASS:
+            strcpy(buf, "ClusterSink_MSPs_Mass");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMASS:
+            strcpy(buf, "ClusterSink_MSPs_InitialMass");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALRH:
+            strcpy(buf, "ClusterSink_MSPs_InitialRh");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_AGE:
+            strcpy(buf, "ClusterSink_MSPs_Age");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
+            strcpy(buf, "ClusterSink_MSPs_Age");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
+            strcpy(buf, "ClusterSink_MSPs_Age");
+            break;
+        case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
+            strcpy(buf, "ClusterSink_MSPs_Metallicity");
+            break;
+        case IO_CLUSTER_SINK_ALPHAVIR:
+            strcpy(buf, "ClusterSink_SFing_AlphaVir");
+            break;
+        case IO_CLUSTER_SINK_VDISP:
+            strcpy(buf, "ClusterSink_SFing_VDisp");
+            break;            
         case IO_LASTENTRY:
             endrun(218);
             break;

@@ -16,3 +16,5 @@
 #SYSTYPE="RUSTY_ROME" 
 #SYSTYPE="RUSTY_ICELAKE"
 SYSTYPE="Trillium"
+#SYSTYPE="nibi"
+#SYSTYPE="nibi-debug"

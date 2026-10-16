@@ -106,7 +106,51 @@ INCL =
 endif
 FINCL =
 
+#----------------------------------------------------------------------------------------------
+ifeq ($(SYSTYPE),"nibi")
+  # Linux cluster located at the University of Waterloo (Canada)
+  # https://docs.alliancecan.ca/wiki/Nibi
+  CC       =  mpicc 
+  CXX      = mpicxx -std=c++17
+  FC       = mpif90 -nofor_main
+  OPTIMIZE = -O3 -mavx -g #-ggdb -xCORE-AVX2 -Wno-unknown-pragmas -Wall -Wno-format-security -qopenmp
+  ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
+    OPTIMIZE += -parallel -openmp  # openmp required compiler flags
+  endif
+  GSL_INCL = -I$(EBROOTGSL)/include
+  GSL_LIBS = -L$(EBROOTGSL)/lib -lgsl
+  FFTW_INCL= -I$(EBROOTIMKL)/mkl/include
+  FFTW_LIBS= -L$(EBROOTIMKL)/mkl/lib
+  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi
+  HDF5INCL = -I$(HDF5_DIR)/include -DH5_USE_16_API
+  HDF5LIB  = -L$(HDF5_DIR)/lib -lhdf5 -lgfortran -lz
+  OPT     += -DX86FIX
+  CXXFLAGS = $(CFLAGS)
+  LINKER=$(CXX)
+endif
 
+ifeq ($(SYSTYPE),"nibi-debug")
+  # Linux cluster located at the University of Waterloo (Canada)
+  # Debugging mode
+  # https://docs.alliancecan.ca/wiki/Nibi
+  CC       =  mpicc -O0 -g -ggdb
+  CXX      = mpicxx -std=c++17
+  FC       = mpif90 -nofor_main
+  OPTIMIZE = -Wall -Wno-unused-but-set-variable -Wno-uninitialized -Wno-format-security -Wno-unused-result
+  ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
+    OPTIMIZE += -parallel -openmp  # openmp required compiler flags
+  endif
+  GSL_INCL = -I$(EBROOTGSL)/include
+  GSL_LIBS = -L$(EBROOTGSL)/lib -lgsl
+  FFTW_INCL= -I$(EBROOTIMKL)/mkl/include
+  FFTW_LIBS= -L$(EBROOTIMKL)/mkl/lib
+  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi
+  HDF5INCL = -I$(HDF5_DIR)/include -DH5_USE_16_API
+  HDF5LIB  = -L$(HDF5_DIR)/lib -lhdf5 -lgfortran -lz
+  OPT     += -DX86FIX
+  CXXFLAGS = $(CFLAGS)
+  LINKER=$(CXX)
+endif
 
 #----------------------------------------------------------------------------------------------
 ifeq ($(SYSTYPE),"Trillium")
@@ -134,28 +178,6 @@ endif
 ## As of August 2025 it seems that the following way of loading the modules works:
 ## module load StdEnv/2023 gcc/12.3 openmpi/4.1.5 fftw-mpi/3.3.10 gsl/2.7 hdf5/1.14.2
 ## No performance tests for now
-endif
-
-ifeq ($(SYSTYPE),"nibi")
-  # Linux cluster located at the University of Waterloo (Canada)
-  # https://docs.alliancecan.ca/wiki/Nibi
-  CC       =  mpicc 
-  CXX      = mpicxx -std=c++17
-  FC       = mpif90 -nofor_main
-  OPTIMIZE = -O3 -mavx -g #-ggdb -xCORE-AVX2 -Wno-unknown-pragmas -Wall -Wno-format-security -qopenmp
-  ifeq (OPENMP,$(findstring OPENMP,$(CONFIGVARS)))
-    OPTIMIZE += -parallel -openmp  # openmp required compiler flags
-  endif
-  GSL_INCL = -I$(EBROOTGSL)/include
-  GSL_LIBS = -L$(EBROOTGSL)/lib -lgsl
-  FFTW_INCL= -I$(EBROOTIMKL)/mkl/include
-  FFTW_LIBS= -L$(EBROOTIMKL)/mkl/lib
-  MPICHLIB =  -L$(EBROOTOPENMPI)/lib -lmpi
-  HDF5INCL = -I$(HDF5_DIR)/include -DH5_USE_16_API
-  HDF5LIB  = -L$(HDF5_DIR)/lib -lhdf5 -lgfortran -lz
-  OPT     += -DX86FIX
-  CXXFLAGS = $(CFLAGS)
-  LINKER=$(CXX)
 endif
 
 ifeq ($(SYSTYPE),"Frontera")
@@ -300,8 +322,10 @@ endif
 #----------------------------------------------------------------------------------------------
 # Environment for building GIZMO on a macbook with libraries installed via homebrew. But note
 # that the specific GSL and HDF5 versions are hardcoded here...
+# MRC - updated for Apple Silicon paths
 ifeq ($(SYSTYPE),"MacBookCellar")
 CC       =  mpicc
+CXX      =  mpicxx -std=c++17
 CXX      =  mpicxx -std=c++17
 FC       =  $(CC) #mpifort  ## change this to "mpifort" for packages requiring linking secondary fortran code, currently -only- the helmholtz eos modules do this, so I leave it un-linked for now to save people the compiler headaches
 OPTIMIZE = -O3 -funroll-loops -ffast-math -march=native -flto 
@@ -331,11 +355,10 @@ MKL_LIBS = #
 endif
 GSL_INCL = -I/opt/homebrew/Cellar/gsl/2.8/include #-I$(PORTINCLUDE)
 GSL_LIBS = -L/opt/homebrew/Cellar/gsl/2.8/lib #-L$(PORTLIB)
-FFTW_INCL= -I/opt/homebrew/Cellar/fftw/3.3.10_3/include
-FFTW_LIBS= -L/opt/homebrew/Cellar/fftw/3.3.10_3/lib
-HDF5_VERSION := $(shell ls /opt/homebrew/Cellar/hdf5/ 2>/dev/null | sort -V | tail -n 1)
-HDF5INCL = -I/opt/homebrew/Cellar/hdf5/$(HDF5_VERSION)/include -DH5_USE_16_API  #-I$(PORTINCLUDE) -DH5_USE_16_API
-HDF5LIB  = -L/opt/homebrew/Cellar/hdf5/$(HDF5_VERSION)/lib -lhdf5 -lz  #-L$(PORTLIB)
+FFTW_INCL= -I/usr/local/include
+FFTW_LIBS= -L/usr/local/lib
+HDF5INCL = -I/opt/homebrew/Cellar/hdf5/1.14.6/include -DH5_USE_16_API  #-I$(PORTINCLUDE) -DH5_USE_16_API
+HDF5LIB  = -L/opt/homebrew/Cellar/hdf5/1.14.6/lib -lhdf5 -lz  #-L$(PORTLIB)
 MPICHLIB = #
 OPT     += -DDISABLE_ALIGNED_ALLOC -DCHIMES_USE_DOUBLE_PRECISION #
 endif
@@ -768,6 +791,10 @@ GRACKLEINCL =
 GRACKLELIBS =
 endif
 
+ifeq (CLUSTER_SINK,$(findstring CLUSTER_SINK,$(CONFIGVARS)))
+OBJS    += cluster_sink/feedback_fits.o cluster_sink/formation_stellarpops.o cluster_sink/cluster_sink_util.o
+INCL    +=  cluster_sink/feedback_fits.h 
+endif
 
 # linking libraries (includes machine-dependent options above)
 CFLAGS = $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5INCL) \
@@ -792,6 +819,7 @@ ifeq (DOUBLEPRECISION_FFTW,$(findstring DOUBLEPRECISION_FFTW,$(CONFIGVARS)))  # 
   FFTW_LIBNAMES = -lfftw3_mpi -lfftw3 # double-precision libraries
 else
   FFTW_LIBNAMES = -lfftw3f_mpi -lfftw3f # single-precision libraries
+  FFTW_LIBNAMES = -lrfftw_mpi -lfftw_mpi -lrfftw -lfftw # MRC - look for the right libraries
 endif
 endif
 

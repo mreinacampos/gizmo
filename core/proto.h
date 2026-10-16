@@ -569,7 +569,11 @@ double evaluate_time_since_t_initial_in_Gyr(double t_initial);
 #ifdef GALSF
 int is_particle_single_star_eligible(long i);
 double evaluate_stellar_age_Gyr(long i);
+#ifdef CLUSTER_SINK // MRC - in C++, one can have functions with the same number and different arguments, so maybe this can be removed
+double evaluate_light_to_mass_ratio(double stellar_age_in_gyr, int i, int j);
+#else
 double evaluate_light_to_mass_ratio(double stellar_age_in_gyr, int i);
+#endif
 double calculate_relative_light_to_mass_ratio_from_imf(double stellar_age_in_gyr, int i, int mode);
 double calculate_individual_stellar_luminosity(double mdot, double mass, long i);
 double return_probability_of_this_forming_sink_from_seed_model(int i);
@@ -579,6 +583,9 @@ double mechanical_fb_calculate_eventrates(int i, double dt);
 double Z_for_stellar_evol(int i);
 #ifdef METALS
 void get_jet_yields(double *yields, int i);
+#endif
+#ifdef CLUSTER_SINK
+void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i, int fb_loop_iteration);
 #endif
 #if defined(GALSF_FB_MECHANICAL) && defined(GALSF_FB_FIRE_STELLAREVOLUTION)
 double mechanical_fb_calculate_eventrates_SNe(int i, double dt);
@@ -708,7 +715,11 @@ double rt_ir_lambdadust(int i, double Tgas, struct particle_data *pp, struct gas
 #endif
 
 #if defined(GALSF_FB_FIRE_RT_HIIHEATING) || (defined(RT_CHEM_PHOTOION) && defined(GALSF))
+#ifdef CLUSTER_SINK
+double particle_ionizing_luminosity_in_cgs(long i, int j);
+#else
 double particle_ionizing_luminosity_in_cgs(long i);
+#endif
 #endif
 
 #ifdef GALSF_FB_FIRE_RT_HIIHEATING
@@ -912,8 +923,11 @@ double report_time(void);
 
 /* on some DEC Alphas, the correct prototype for pow() is missing,
    even when math.h is included ! */
-
+#if defined(__APPLE__) && defined(__aarch64__)
 double pow(double, double);
+#else
+double pow(double, double) noexcept;
+#endif
 
 
 void long_range_init(void);
@@ -941,7 +955,11 @@ int rt_get_source_luminosity_chimes(int i, int mode, double *lum, double *chimes
 #endif
 int rt_get_source_luminosity(int i, int mode, double *lum, struct particle_data *pp, struct gas_cell_data *cell);
 int rt_get_donation_target_bin(int bin);
+#ifdef CLUSTER_SINK
+int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, struct particle_data *pp, struct gas_cell_data *cell, int j);
+#else
 int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, struct particle_data *pp, struct gas_cell_data *cell);
+#endif
 int rt_get_lum_band_agn(int i, int mode, double *lum, struct particle_data *pp, struct gas_cell_data *cell);
 int rt_get_lum_band_singlestar(int i, int mode, double *lum, struct particle_data *pp, struct gas_cell_data *cell);
 void rt_define_effective_frequencies_in_bands(void);

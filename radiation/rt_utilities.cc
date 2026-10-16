@@ -67,6 +67,24 @@ int rt_get_source_luminosity(int i, int mode, double *lum, struct particle_data 
 #else
     active_check += rt_get_lum_band_singlestar(i,mode,lum, pp, cell); // get luminosities for individual star/sink particles assuming they are protostars or stars
 #endif
+#elif defined(CLUSTER_SINK)
+    double lum_msp[N_RT_FREQ_BINS]; 
+    for(int k=0;k<N_RT_FREQ_BINS;k++) {lum[k] = 0; 
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+    P[i].TotalLuminosity[k] = 0;
+#endif
+    } // zero out the luminosity bins to avoid rubbish
+    for (int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ // change the input quantities to the current MSP properties
+        if(P[i].MSP[j].Mass == 0){continue;} // this MSP has no FB
+        for(int k=0;k<N_RT_FREQ_BINS;k++) {lum_msp[k] = 0;} // zero out the luminosity bins
+        active_check += rt_get_lum_band_stellarpopulation(i,mode,lum_msp,j); // get luminosities for star particles assuming they represent IMF-averaged populations
+        for(int k=0;k<N_RT_FREQ_BINS;k++) { // add up contributions of all MSPs
+            lum[k] += lum_msp[k];
+#ifdef CLUSTER_SINK_OUTPUT_BOLLUM
+            P[i].TotalLuminosity[k] += lum_msp[k];
+#endif
+        }
+    }
 #else
     active_check += rt_get_lum_band_stellarpopulation(i,mode,lum, pp, cell); // get luminosities for star particles assuming they represent IMF-averaged populations
 #if defined(SINK_PARTICLES)
@@ -289,18 +307,35 @@ double rt_absorb_frac_albedo(int i, int k_freq, struct particle_data *pp, struct
 /* subroutine for 'rt_get_source_luminosity', with identical variables, for cases where the radiation
     represents IMF-averaged stellar populations, i.e. the sort of thing which would be used in galaxy simulations.
  */
+#ifdef CLUSTER_SINK // MRC - check how to use function overloading
+int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, struct particle_data *pp, struct gas_cell_data *cell, int j)
+#else
 int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, struct particle_data *pp, struct gas_cell_data *cell)
+#endif
 {
+#ifdef CLUSTER_SINK 
+    if((pp[i].Type != 4) && (pp[i].Type != 5)) {return 0;} // allow 'star' and 'sink' particles act in this subroutine //
+#else
     if(!((pp[i].Type == 4) || ((All.ComovingIntegrationOn==0)&&((pp[i].Type==2)||(pp[i].Type==3))))) {return 0;} // only star-type particles act in this subroutine //
+ #endif
     if(pp[i].Mass <= 0 || !isfinite(pp[i].Mass)) {return 0;} // use pp[i].Mass: cell[i].Mass is only valid for gas (Type==0)
     int active_check = 0; // default to inactive //
 #if defined(GALSF) /* basically none of these modules make sense without the GALSF module active */
     double star_age = evaluate_stellar_age_Gyr(i), m_sol = pp[i].Mass * UNIT_MASS_IN_SOLAR;
+
+#ifdef CLUSTER_SINK
+    if(P[i].MSP[j].Mass == 0){return 0;} // this MSP has no FB to produce
+    star_age = evaluate_stellar_age_Gyr_for_msp(i,j), m_sol = P[i].MSP[j].Mass * UNIT_MASS_IN_SOLAR;
+#endif
+
     if((star_age<=0) || isnan(star_age)) {return 0;} // calculate stellar age, will be used below, and catch for bad values
 #if (GALSF_FB_FIRE_STELLAREVOLUTION <= 2)
     if(star_age > 0.1) {return 0;} // old optimization, not really needed with how we do this now //
 #endif
 
+#ifdef CLUSTER_SINK
+    double L = evaluate_light_to_mass_ratio(star_age, i, j) * m_sol / UNIT_LUM_IN_SOLAR; if(L<=0 || isnan(L)) {L=0;}
+#endif
     
 #if defined(GALSF_FB_FIRE_RT_LONGRANGE) /* three-band (UV, OPTICAL, IR) approximate spectra for stars as used in the FIRE (Hopkins et al.) models */
     SET_ACTIVE_RT_CHECK();
@@ -327,16 +362,16 @@ int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, struct parti
     SET_ACTIVE_RT_CHECK();
     double f_op=0; if(star_age <= 0.0025) {f_op=0.09;} else {
         if(star_age <= 0.006) {f_op=0.09*(1+((star_age-0.0025)/0.004)*((star_age-0.0025)/0.004));} else {f_op=1-0.8410937/(1+sqrt((star_age-0.006)/0.3));}}
-    lum[RT_FREQ_BIN_OPTICAL_NIR] = f_op * evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR;
+    lum[RT_FREQ_BIN_OPTICAL_NIR] = f_op * L;
 #endif
 
-#if defined(RT_NUV) /* Near-UV approximate spectra (UV/optical spectra, sub-photo-electric, but high-opacity) for stars as used in the FIRE (Hopkins et al.) models */
+#if defined(RT_NUV) && !defined(CLUSTER_SINK) /* Near-UV approximate spectra (UV/optical spectra, sub-photo-electric, but high-opacity) for stars as used in the FIRE (Hopkins et al.) models */
     SET_ACTIVE_RT_CHECK();
 #if !defined(RT_OPTICAL_NIR)
     double f_op=0; if(star_age <= 0.0025) {f_op=0.09;} else {
         if(star_age <= 0.006) {f_op=0.09*(1+((star_age-0.0025)/0.004)*((star_age-0.0025)/0.004));} else {f_op=1-0.8410937/(1+sqrt((star_age-0.006)/0.3));}}
 #endif
-    lum[RT_FREQ_BIN_NUV] = (1-f_op) * evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR;
+    lum[RT_FREQ_BIN_NUV] = (1-f_op) * L;
 #endif
 
 #if defined(RT_PHOTOELECTRIC) /* photo-electric bands (8-13.6 eV, specifically): below is from integrating the spectra from STARBURST99 with the Geneva40 solar-metallicity + lower tracks */
@@ -357,12 +392,25 @@ int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, struct parti
 
 #if defined(RT_CHEM_PHOTOION)   /* Hydrogen and Helium ionizing bands */
     SET_ACTIVE_RT_CHECK();
+#ifdef CLUSTER_SINK
+    double l_ion = particle_ionizing_luminosity_in_cgs(i, j) / UNIT_LUM_IN_CGS; /* calculate ionizing flux based on actual stellar or BH physics */
+#else
     double l_ion = particle_ionizing_luminosity_in_cgs(i) / UNIT_LUM_IN_CGS; /* calculate ionizing flux based on actual stellar or BH physics */
+#endif
     lum[RT_FREQ_BIN_H0] = l_ion; // default to putting everything into a single band //
 #if defined(RT_PHOTOION_MULTIFREQUENCY)
     int i_vec[4] = {RT_FREQ_BIN_H0, RT_FREQ_BIN_He0, RT_FREQ_BIN_He1, RT_FREQ_BIN_He2}; // these will all be the same if not using multi-frequency module //
     int k; for(k=0;k<4;k++) {lum[i_vec[k]] = l_ion * rt_ion_precalc_stellar_luminosity_fraction[i_vec[k]];} // assign flux appropriately according to pre-tabulated result //
 #endif
+#endif
+
+#if defined(RT_NUV) && defined(CLUSTER_SINK)/* Near-UV approximate spectra (UV/optical spectra, sub-photo-electric, but high-opacity) for stars as used in the FIRE (Hopkins et al.) models */
+    SET_ACTIVE_RT_CHECK();
+    double f_nuv = 0;
+    for(int k=0;k<N_RT_FREQ_BINS;k++){
+        if(k!=RT_FREQ_BIN_NUV){ f_nuv += lum[k]/L;}
+    }
+    lum[RT_FREQ_BIN_NUV] = (1-f_nuv) * L;
 #endif
 
 #if defined(RT_HARD_XRAY) || defined(RT_SOFT_XRAY) /* soft and hard X-rays for e.g. Compton heating by X-ray binaries */
@@ -775,6 +823,7 @@ void rt_update_driftkick(int i, double dt_entr, int mode, struct particle_data *
 
     for(k_tmp=0; k_tmp<N_RT_FREQ_BINS; k_tmp++)
     {
+
 #ifdef RT_INFRARED
         // need to do IR last after summing absorption from other bands //
         if(RT_FREQ_BIN_INFRARED < N_RT_FREQ_BINS-1) {if(kf == RT_FREQ_BIN_INFRARED) {kf = N_RT_FREQ_BINS-1;} if(kf == N_RT_FREQ_BINS-1) {kf = RT_FREQ_BIN_INFRARED;}}
@@ -818,9 +867,32 @@ void rt_update_driftkick(int i, double dt_entr, int mode, struct particle_data *
                     a0_abs = -rt_absorption_rate(i,kf, pp, cell); // update absorption rate using the new radiation temperature //
                 }
                 double total_absorption_rate = E_abs_tot_toIR + fabs(a0_abs)*e0; // add the summed absorption and equate to dust emission //
+
+#ifdef CLUSTER_SINK_DEBUG
+                if((i == 0) && (ThisTask == 0)){ //MRC
+                    fflush(stdout);
+                    printf("[DEBUGGING - rt_update_driftkick - 846] ThisTask %d, i %d - Dust_Temperature %g - E_abs_tot_toIR %g, - fabs(a0_abs)*e0 %g - total_absorption_rate %g,  vol_inv_phys %g, C_LIGHT_CODE/C_LIGHT_CODE_REDUCED %g \n", 
+                        ThisTask, i, cell[i].Dust_Temperature, E_abs_tot_toIR, fabs(a0_abs)*e0, total_absorption_rate, vol_inv_phys, C_LIGHT_CODE/C_LIGHT_CODE_REDUCED); //MRC
+                    fflush(stdout);
+                }
+#endif
+#ifdef CLUSTER_SINK_DEBUG
+                if ((i == 0) && (ThisTask == 0)){
+                    printf("[DEBUGGING - rt_update_driftkick - 835] - ThisTask %d, i %d - Dust_Temperature: %g, T_gas: %g\n", ThisTask, i, cell[i].Dust_Temperature, T_gas); //MRC
+                    fflush(stdout);
+                } // MRC{}
+                assert(cell[i].Dust_Temperature < MAX_DUST_TEMP); // MRC
+ #endif
 #ifdef COOLING
                 cell[i].Dust_Temperature = rt_eqm_dust_temp(i, T_gas, total_absorption_rate * vol_inv_phys * C_LIGHT_CODE / C_LIGHT_CODE_REDUCED, pp, cell);
 #endif
+#ifdef CLUSTER_SINK_DEBUG
+                if ((i == 0) && (ThisTask == 0)){
+                    printf("[DEBUGGING - rt_update_driftkick - 847] - ThisTask %d, i %d - Dust_Temperature: %g, T_gas: %g\n", ThisTask, i, cell[i].Dust_Temperature, T_gas); //MRC
+                    fflush(stdout);
+                } // MRC{}
+                assert(cell[i].Dust_Temperature < MAX_DUST_TEMP); // MRC
+ #endif
                 if(cell[i].Dust_Temperature < T_min) {cell[i].Dust_Temperature = T_min;}
 #if defined(RT_DIAG_IR_DOUBLE_COUNT) && defined(COOLING)
                 if((mode==0) && (dt_entr>0)) { /* dust emission and gas coupling at the kick's Tdust, over this kick, in band units */
@@ -1423,6 +1495,13 @@ double dust_dE_cooling(int i, double Tgas, double Tdust, double* Tdust_fixedpoin
     double nHcgs = HYDROGEN_MASSFRAC * UNIT_DENSITY_IN_CGS * cell[i].Density * All.cf_a3inv / PROTONMASS_CGS;
     double lambda_to_dErad = (C_LIGHT_CODE_REDUCED/C_LIGHT_CODE) * nHcgs * nHcgs * (dt*UNIT_TIME_IN_CGS) / (cell[i].Density * All.cf_a3inv * UNIT_DENSITY_IN_CGS) / (UNIT_SPECEGY_IN_CGS) * cell[i].Mass; /* need to account for RSOL factors in emission/absorption rates */
     
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) // MRC
+        {                
+            printf("[DEBUGGING - dust_dE_cooling - 1437] - ThisTask %d, i %d - CellP[i].Density %g, nHcgs %g - (C_LIGHT_CODE_REDUCED/C_LIGHT_CODE) %g, dt %g, P[i].Mass %g, lambda_to_dErad %g\n", ThisTask, i, CellP[i].Density, nHcgs, (C_LIGHT_CODE_REDUCED/C_LIGHT_CODE), dt, P[i].Mass, lambda_to_dErad); //MRC
+            fflush(stdout);
+        }
+#endif
     double dust_absorption_nonIR = 0;
     double Tdust_cell_saved = cell[i].Dust_Temperature; cell[i].Dust_Temperature = Tdust; /* band opacities below read the cell's dust fraction: make it the trial value, as emission already is */
     for(int k=0; k < N_RT_FREQ_BINS; k++){
@@ -1471,7 +1550,7 @@ double dust_dE_cooling(int i, double Tgas, double Tdust, double* Tdust_fixedpoin
     double Tdust_fixed1_tmp = Tgas + (dust_absorption - dust_emission)/(alpha_gd*lambda_to_dErad + MIN_REAL_NUMBER); // make sure to include term in denominator to protect vs nans
     double Tdust_fixed2_tmp = sqrt(sqrt(DMAX(0,LambdaDust * lambda_to_dErad + dust_absorption)/(fac_emission * kappa_dust_emission + MIN_REAL_NUMBER))); // make sure to include term in denominator and MAX in numerator to protect vs nans
     // PFH: better behavior for 2 above is to bracket with solution for fixed dust absorption, which gives T2 = (T0 == above with Tdust = 0 in LambdaDust, positive-definite) x , where x solves x^4+b*x=1, b=((alpha_gd * lambda_to_dErad)/(fac_emission * kappa_dust_emission * T0^3)), should be dimensionless, for b << 1, x=1, for b >> 1, x->1/b; the above essentially jumps to b->infinity in the latter regime
-    
+
     *Tdust_fixedpoint_1 = DMAX(Tdust_fixed1_tmp, 0); // check against overshoot into negative values
     *Tdust_fixedpoint_2 = DMAX(Tdust_fixed2_tmp, 0); // check against overshoot into negative values
     return result;
@@ -1489,6 +1568,13 @@ double rt_ir_lambdadust(int i, double T, struct particle_data *pp, struct gas_ce
 #endif
 
     dE = dE_guess = ROOTFIND_FUNCTION_INNER(Tdust-T);
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) // MRC
+        {                
+            printf("[DEBUGGING - rt_ir_lambdadust - 1500] - ThisTask %d, i %d - T %g, Tdust %g - Tdust_fixedpoint_1 %g, Tdust_fixedpoint_2 %g\n", ThisTask, i, T, Tdust, Tdust_fixedpoint_1, Tdust_fixedpoint_2); //MRC
+            fflush(stdout);
+        }
+#endif
     //if(cell[i].Dust_Temperature >= MAX_DUST_TEMP && dE > 0) {return 0;}
     if(Tdust_fixedpoint_1 <= 0) {Tdust_fixedpoint_1 = T;} // this means overshot to <0 from dust-gas coupling term, so set to equilibrium with gas temp as a guess
     if(Tdust_fixedpoint_1 > MAX_DUST_TEMP) {Tdust_fixedpoint_1 = MAX_DUST_TEMP;} // cap the guess
@@ -1519,6 +1605,13 @@ double rt_ir_lambdadust(int i, double T, struct particle_data *pp, struct gas_ce
             if(dE==0){break;}
             scalefac *= 0.9;
             n_iter++;
+#ifdef CLUSTER_SINK_DEBUG
+            if ((i == 0) && (ThisTask == 0)) // MRC
+                {                
+                    printf("[DEBUGGING - rt_ir_lambdadust - 1520] - ThisTask %d, i %d, niter %i - scalefac %g, dE_upper: %g, dE %g, Tdust %g\n", ThisTask, i, n_iter, scalefac, dE_upper, dE, Tdust); //MRC
+                    fflush(stdout);
+                }
+#endif
         }
         if(dE < 0) { /* could not bracket downward: equilibrium is at/below the radiation-bath floor, or the cap was hit. Warn only on the cap -- the floor is a physical outcome */
             if(n_iter >= MAXITER) {PRINT_WARNING("Dust temperature bracketing (cooling side) failed to converge: i=%d iter=%d T=%g Tdust=%g Tfloor=%g dE=%g\n",i,n_iter,T,Tdust,Tdust_floor,dE);}
@@ -1535,6 +1628,13 @@ double rt_ir_lambdadust(int i, double T, struct particle_data *pp, struct gas_ce
             if(dE==0){break;}
             scalefac = DMIN(1.25, scalefac*1.1);
             n_iter++;
+#ifdef CLUSTER_SINK_DEBUG
+            if ((i == 0) && (ThisTask == 0)) // MRC
+                {                
+                    printf("[DEBUGGING - rt_ir_lambdadust - 1537] - ThisTask %d, i %d, niter %i - scalefac %g, T_lower %g, dE_lower: %g, dE %g, Tdust %g\n", ThisTask, i, n_iter, scalefac, T_lower, dE_lower, dE, Tdust); //MRC
+                    fflush(stdout);
+                }
+#endif
         }
         if(dE > 0 && n_iter >= MAXITER && Tdust < MAX_DUST_TEMP) {
             PRINT_WARNING("Dust temperature bracketing (heating side) failed to converge: i=%d iter=%d T=%g Tdust=%g dE=%g\n",i,n_iter,T,Tdust,dE);
@@ -1542,6 +1642,13 @@ double rt_ir_lambdadust(int i, double T, struct particle_data *pp, struct gas_ce
         }
         T_upper = Tdust, dE_upper = dE;
     }
+#ifdef CLUSTER_SINK_DEBUG     
+    if ((i == 0) && (ThisTask == 0)) // MRC
+    {                
+        printf("[DEBUGGING - rt_ir_lambdadust - 1550] - ThisTask %d, i %d - T %g, Dust_Temperature: %g, T_upper %g, dE_upper %g, dE_lower %g\n", ThisTask, i, T, CellP[i].Dust_Temperature, T_upper, dE_upper, dE_lower); //MRC
+        fflush(stdout);
+    }
+#endif     
     if(T_upper>=MAX_DUST_TEMP && dE_upper > 0)
     {
         /* dE>0 at the ceiling happens when the dust really sublimates, but also when the climb started above the
@@ -1561,7 +1668,6 @@ double rt_ir_lambdadust(int i, double T, struct particle_data *pp, struct gas_ce
         else if(phase == 1) {cell[i].Dust_Temperature = DMAX(Tk,Tdust_floor); return 0;} /* negative down to the floor: as the cooling-side floor exit */
         else {cell[i].Dust_Temperature = MAX_DUST_TEMP; return 0;} /* positive everywhere: sublimated */
     }
-
     if(dE_lower * dE_upper > 0) {PRINT_WARNING("Failed to bracket Tdust solution for ID=%lld T=%g T_lower=%g T_upper=%g dE_lower=%g dE_upper=%g\n", (long long)(long long)i /* particle index */, T, T_lower,T_upper, dE_lower, dE_upper);}
 
     if(dE!=0){  // root-solve for Tdust
@@ -1570,6 +1676,12 @@ double rt_ir_lambdadust(int i, double T, struct particle_data *pp, struct gas_ce
         double ROOTFIND_REL_X_tol = dTdust_tol, ROOTFIND_ABS_X_tol=0.;
         #include "../system/bracketed_rootfind.h"
         Tdust = ROOTFIND_X_new+T;
+#ifdef CLUSTER_SINK_DEBUG
+        if ((i == 0) && (ThisTask == 0)) { // MRC
+            printf("[DEBUGGING - rt_ir_lambdadust - 1548] - ThisTask %d, i %d - T %g, T_lower %g, T_upper %g - ROOTFIND_X_a %g, ROOTFIND_X_b %g - ROOTFUNC_a %g, ROOTFUNC_b %g - ROOTFIND_REL_X_tol %g, ROOTFIND_ABS_X_tol %g - ROOTFIND_X_new %g - Dust_Temperature: %g\n", ThisTask, i, T, T_lower, T_upper, ROOTFIND_X_a, ROOTFIND_X_b, ROOTFUNC_a, ROOTFUNC_b, ROOTFIND_REL_X_tol, ROOTFIND_ABS_X_tol, ROOTFIND_X_new, CellP[i].Dust_Temperature); //MRC
+            fflush(stdout);
+        }
+#endif
     }
     double LambdaDust = gas_dust_heating_coeff(i,T,Tdust, pp, cell) * (T-Tdust);
 #if defined(RT_DIAG_IR_DOUBLE_COUNT) && defined(COOLING)
@@ -1578,6 +1690,12 @@ double rt_ir_lambdadust(int i, double T, struct particle_data *pp, struct gas_ce
 #endif
     cell[i].Lambda_RadiativeCooling_toRHDBins[RT_FREQ_BIN_INFRARED] += LambdaDust;
     cell[i].Dust_Temperature = Tdust;
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) { // MRC
+        printf("[DEBUGGING - rt_ir_lambdadust - 1557] - ThisTask %d, i %d - T %g, Tdust %g - Dust_Temperature: %g, T_upper %g, dE_upper %g, dE_lower %g, LambdaDust %g, \n", ThisTask, i, T, Tdust, cell[i].Dust_Temperature, T_upper, dE_upper, dE_lower, LambdaDust); //MRC
+        fflush(stdout);
+    }
+#endif
     return LambdaDust;
 }
 
@@ -1623,8 +1741,22 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate, struct par
     double Tmax=1e10; // upper-bound dust temperature above which we definitely don't believe our detailed (tiny) dust abundance
     Tmax = MAX_DUST_TEMP; // this is now a global variable
     /* First we come up with a reasonable guess for the dust temp based on available info */
+
 #ifdef RT_INFRARED
     Tdust_guess = DMIN(DMAX(cell[i].Dust_Temperature, 1.), MAX_DUST_TEMP); // previous dust temperature should be a good guess
+
+#ifdef CLUSTER_SINK_DEBUG
+    if((i == 0) && (ThisTask == 0)) // MRC
+    {
+        fflush(stdout);
+        printf("[DEBUGGING - rt_eqm_dust_temp - 1573] ThisTask %d, i %d - CellP[i].Dust_Temperature %g, MAX_DUST_TEMP %g, Tdust_guess %g\n", ThisTask, i, cell[i].Dust_Temperature, MAX_DUST_TEMP, Tdust_guess); //MRC
+        fflush(stdout);
+        printf("[DEBUGGING - rt_eqm_dust_temp 1604] ThisTask %d, i %d - Dust_Temperature %g - Rad_E_gamma [%g, %g, %g, %g, %g] - T %g - dust_absorption_rate %g\n", 
+            ThisTask, i, cell[i].Dust_Temperature, cell[i].Rad_E_gamma[RT_FREQ_BIN_H0], cell[i].Rad_E_gamma[RT_FREQ_BIN_PHOTOELECTRIC], cell[i].Rad_E_gamma[RT_FREQ_BIN_NUV], cell[i].Rad_E_gamma[RT_FREQ_BIN_OPTICAL_NIR], cell[i].Rad_E_gamma[RT_FREQ_BIN_INFRARED], T, dust_absorption_rate);
+        fflush(stdout);
+    }
+#endif
+
 #else // case where we don't have a pre-computed dust temp, use asymptotic limits to get a good guess
     double Zfac = 1.0;
 #ifdef METALS
@@ -1647,7 +1779,14 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate, struct par
     int n_iter=0;
     double fdustmet_init = return_dust_to_metals_ratio_vs_solar(i, Tdust, pp, cell); /* need this for reference but can't let it change over iterations */
     dEdt_guess = dEdt = dust_dEdt(i,T,Tdust_guess,dust_absorption_rate,fdustmet_init, pp, cell);
-    
+        
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) {
+        printf("[DEBUGGING - rt_eqm_dust_temp - 1593] - ThisTask %d, i %d, T %g, dust_absorption_rate %g, Tdust_guess %g, dEdt_guess %g, dEdt %g\n", ThisTask, i, T, dust_absorption_rate, Tdust_guess, dEdt_guess, dEdt); //MRC
+        fflush(stdout);
+    }
+#endif
+
     if(dEdt==0){return Tdust_guess;}
     /* bracketing the dust temperature */
     if(dEdt < 0)
@@ -1685,6 +1824,14 @@ double rt_eqm_dust_temp(int i, double T, double dust_absorption_rate, struct par
 	    if(n_iter >= MAXITER && dEdt > 0) {PRINT_WARNING("Dust temperature bracketing (heating side) failed to converge: ID=%lld iter=%d T=%g Tdust=%g dEdt=%g", (long long)pp[i].ID, n_iter, T, Tdust, dEdt);}
 	    T_upper = Tdust, dEdt_upper = dEdt;
     }
+
+#ifdef CLUSTER_SINK_DEBUG
+    if ((i == 0) && (ThisTask == 0)) {
+        printf("[DEBUGGING - rt_eqm_dust_temp - 1637] - ThisTask %d i %d, T_upper %g, dEdt_upper %g, Tdust %g, T_lower %g\n", ThisTask, i, T_upper, dEdt_upper, Tdust, T_lower); //MRC
+       fflush(stdout);
+    }
+#endif
+
     if(T_upper==Tmax && dEdt_upper > 0) {return Tmax;}
     if(T_lower>=Tmax) {return Tmax;}
 

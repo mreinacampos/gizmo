@@ -95,6 +95,9 @@ struct OUTPUT_STRUCT_NAME
 #ifdef SINK_REPOSITION_ON_POTMIN
     double Sink_PotentialMinimumOfNeighbors; Vec3<double> Sink_PotentialMinimumOfNeighborsPos;
 #endif
+#if defined(CLUSTER_SINK) and !defined(CLUSTER_SINK_AVOID_MERGERS)
+    int flag_SinkMerger_withMSP; 
+#endif
 }
 *DATARESULT_NAME, *DATAOUT_NAME; /* dont mess with these names, they get filled-in by your definitions automatically */
 
@@ -109,6 +112,9 @@ static inline void OUTPUTFUNCTION_NAME(struct OUTPUT_STRUCT_NAME *out, int i, in
 #ifdef SINK_REPOSITION_ON_POTMIN
     if(mode==0) {P[i].Sink_PotentialMinimumOfNeighbors=out->Sink_PotentialMinimumOfNeighbors; P[i].Sink_PotentialMinimumOfNeighborsPos=out->Sink_PotentialMinimumOfNeighborsPos;
         } else {if(out->Sink_PotentialMinimumOfNeighbors < P[i].Sink_PotentialMinimumOfNeighbors) {P[i].Sink_PotentialMinimumOfNeighbors=out->Sink_PotentialMinimumOfNeighbors; P[i].Sink_PotentialMinimumOfNeighborsPos=out->Sink_PotentialMinimumOfNeighborsPos;}}
+#endif
+#if defined(CLUSTER_SINK) && !defined(CLUSTER_SINK_AVOID_MERGERS)
+    ASSIGN_ADD_PRESET(SinkTempInfo[target].flag_SinkMerger_withMSP, out->flag_SinkMerger_withMSP, mode);
 #endif
 }
 
@@ -199,7 +205,7 @@ int sink_feed_evaluate(int target, int mode, int *exportflag, int *exportnodecou
 #endif
 			
                         
-                        
+#ifndef CLUSTER_SINK_AVOID_MERGERS                        
                         if(P[j].Type == 5)  /* we may have a sink particle merger -- check below if allowed */
                         {
                             /* most massive sink swallows the other, which keeps the result unique and order-independent. The
@@ -239,11 +245,18 @@ int sink_feed_evaluate(int target, int mode, int *exportflag, int *exportnodecou
                                 if(P[j].Mass > max_mmerge) {allow_sink_merger = 0;} // beyond max mass (default few cells)
                                 if(allow_sink_merger == 1) /* ok only if meet all the criteria above are we allowed to consider a BH-BH merger */
 #endif
+#ifdef CLUSTER_SINK
+                                if(sink_check_boundedness(j,vrel,vesc,r,sink_radius)) // only those meeting the boundedness check can merge
+#endif
                                 {
+
                                     if(vrel < vesc)
                                     {
                                         printf(" ..Sink-Sink Merger: P[j.]ID=%llu to be swallowed by id=%llu \n", (unsigned long long) P[j].ID, (unsigned long long) local.ID);
                                         SwallowID_j = local.ID;
+#if defined(CLUSTER_SINK) and !defined(CLUSTER_SINK_AVOID_MERGERS)                                      
+                                        if (P[j].MSP[0].InitialMass > 0){out.flag_SinkMerger_withMSP += 1;} // flag it as a merger with possible MSPs to append
+#endif 
                                     } else {
 #if defined(SINK_OUTPUT_MOREINFO)     // DAA: BH merger info will be saved in a separate output file
                                         printf(" ..ThisTask=%d, time=%g: id=%llu would like to swallow %llu, but vrel=%g vesc=%g\n", ThisTask, All.Time, (unsigned long long)local.ID, (unsigned long long)P[j].ID, vrel, vesc);
@@ -254,7 +267,8 @@ int sink_feed_evaluate(int target, int mode, int *exportflag, int *exportnodecou
                                 } // if eligible for bh-bh mergers //
                             } // unique BH, merging from higher (swallowing lower) mass
                         } // type == 5
-                        
+#endif // CLUSTER_SINK_AVOID_MERGERS
+
                         
                         /* This is a similar loop to what we already did in sink_environment, but here we stochastically
                          reduce GRAVCAPT events in order to (statistically) obey the eddington limit */

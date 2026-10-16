@@ -169,6 +169,7 @@ static struct OUTPUT_STRUCT_NAME
 #endif
 #if defined(SINK_PARTICLES)
     int Sink_TimeBinGasNeighbor;
+
 #if defined(BH_ACCRETE_NEARESTFIRST) || defined(SINGLE_STAR_TIMESTEPPING)
     MyDouble Sink_dr_to_NearestGasNeighbor;
 #endif

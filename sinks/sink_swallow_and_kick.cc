@@ -53,6 +53,10 @@ struct INPUT_STRUCT_NAME
 #ifdef SINGLE_STAR_FB_LOCAL_RP
     MyFloat Luminosity;
 #endif    
+#if defined(CLUSTER_SINK) && !defined(CLUSTER_SINK_AVOID_MERGERS)
+    MyFloat MSP_AgeInMyr[CLUSTER_SINK_NUMMSP]; 
+    MyFloat MSP_Metallicity[CLUSTER_SINK_NUMMSP]; 
+#endif  
 }
 *DATAIN_NAME, *DATAGET_NAME; /* dont mess with these names, they get filled-in by your definitions automatically */
 
@@ -89,6 +93,17 @@ static inline void INPUTFUNCTION_NAME(struct INPUT_STRUCT_NAME *in, int i, int l
 #endif
 #ifdef SINGLE_STAR_FB_LOCAL_RP
     in->Luminosity = sink_lum_bol(in->Mdot, in->Sink_Mass, i);
+#endif
+#if defined(CLUSTER_SINK) && !defined(CLUSTER_SINK_AVOID_MERGERS)
+    for(k=0;k<CLUSTER_SINK_NUMMSP;k++) {
+#ifdef CLUSTER_SINK_DEBUG_INITPROPS
+        in->MSP_AgeInMyr[k] = evaluate_initial_stellar_age_Gyr_for_msp(i, k)*1e3; // in Myr 
+        in->MSP_Metallicity[k] = P[i].MSP[k].InitialMetallicity_Z; // collect only total Z
+#else
+        in->MSP_AgeInMyr[k] = evaluate_stellar_age_Gyr_for_msp(i, k)*1e3; // in Myr 
+        in->MSP_Metallicity[k] = P[i].MSP[k].Metallicity[0]; // collect only total Z
+#endif
+    }
 #endif    
 }
 
@@ -127,6 +142,16 @@ struct OUTPUT_STRUCT_NAME
 #ifdef GALSF
     MyFloat Accreted_Age;
 #endif
+#ifdef CLUSTER_SINK
+    MyFloat accreted_MetalMass[NUM_METAL_SPECIES]; 
+#ifndef CLUSTER_SINK_AVOID_MERGERS
+    int ThisTask; // record the task from which this data came from
+    // define arrays to gather information on the combined MSPs
+    struct cluster_sink_multiple_stellar_population combined_MSP[CLUSTER_SINK_NUMMSP];  
+    // define arrays to gather information on the MSPs that need to be appended
+    struct cluster_sink_multiple_stellar_population append_MSP[CLUSTER_SINK_NUMMSP_ACCRETE]; 
+#endif
+#endif
 }
 *DATARESULT_NAME, *DATAOUT_NAME; /* dont mess with these names, they get filled-in by your definitions automatically */
 
@@ -163,8 +188,77 @@ static inline void OUTPUTFUNCTION_NAME(struct OUTPUT_STRUCT_NAME *out, int i, in
     P[i].Sink_CountProgs += out->Sink_CountProgs;
 #endif
 #ifdef GALSF
+#ifndef CLUSTER_SINK
     if(P[i].StellarAge > out->Accreted_Age) {P[i].StellarAge = out->Accreted_Age;}
 #endif
+#endif
+#ifdef CLUSTER_SINK
+    for(k=0;k<NUM_METAL_SPECIES;k++) {
+        ASSIGN_ADD_PRESET(SinkTempInfo[target].accreted_MetalMass[k], out->accreted_MetalMass[k], mode);
+    }
+
+#ifndef CLUSTER_SINK_AVOID_MERGERS
+    if (SinkTempInfo[target].flag_SinkMerger_withMSP > 0){
+        for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ // loop over MSPs in the ngb
+            // combined MSPs
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].combined_MSP[k].Mass, out->combined_MSP[k].Mass, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].combined_MSP[k].InitialMass, out->combined_MSP[k].InitialMass, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].combined_MSP[k].Age, out->combined_MSP[k].Age, mode);
+            for(int l=0;l<NUM_METAL_SPECIES;l++) {ASSIGN_ADD_PRESET(SinkTempInfo[target].combined_MSP[k].Metallicity[l], out->combined_MSP[k].Metallicity[l], mode);}
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].combined_MSP[k].CumNumSNe, out->combined_MSP[k].CumNumSNe, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].combined_MSP[k].CumNumSNII, out->combined_MSP[k].CumNumSNII, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].combined_MSP[k].CumNumSNIa, out->combined_MSP[k].CumNumSNIa, mode);
+#endif
+#ifdef CLUSTER_SINK_DEBUG
+            if ((P[i].ID == DEBUG_ID) && ((out->combined_MSP[k].Mass > 0) || (out->combined_MSP[k].Age > 0))){
+                printf("[DEBUG - swallow - out2() - combine] ThisTask %d, out %d - target %d, mode %d - k %d - combined_MSP_Mass[k] %g, out %g - combined_MSP_Age[k] %g, out %g - combined SNII %g SNIa %g \n", ThisTask, out->ThisTask,
+                target, mode, k, SinkTempInfo[target].combined_MSP[k].Mass, out->combined_MSP[k].Mass, 
+                SinkTempInfo[target].combined_MSP[k].Age, out->combined_MSP[k].Age, 
+                SinkTempInfo[target].combined_MSP[k].CumNumSNII, SinkTempInfo[target].combined_MSP[k].CumNumSNIa);
+            }
+#endif
+
+        }
+        for(k=0;k<CLUSTER_SINK_NUMMSP_ACCRETE;k++){ // loop over MSPs in the ngb
+           // MSPs to be appended
+            int idx = out->ThisTask * CLUSTER_SINK_NUMMSP_ACCRETE + k;
+            // these quantities are not normalised yet, that will happen later on
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].Mass, out->append_MSP[k].Mass, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].InitialMass, out->append_MSP[k].InitialMass, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].InitialRh, out->append_MSP[k].InitialRh, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].Age, out->append_MSP[k].Age, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].InitialAge, out->append_MSP[k].InitialAge, mode);
+#ifdef CLUSTER_SINK_DEBUG
+            assert(out->append_MSP[k].Age <= All.Time); // check no spurious edge cases here
+            assert(SinkTempInfo[target].append_MSP[idx].Age <= All.Time); // check no spurious edge cases here
+#endif
+            for(int l=0;l<NUM_METAL_SPECIES;l++) {
+                ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].Metallicity[l], out->append_MSP[k].Metallicity[l], mode);
+#ifdef CLUSTER_SINK_DEBUG
+                assert(out->append_MSP[k].Metallicity[l] <= 1); // check no spurious edge cases here
+                assert(SinkTempInfo[target].append_MSP[idx].Metallicity[l] <= 1); // check no spurious edge cases here
+#endif
+            }
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].InitialMetallicity_Z, out->append_MSP[k].InitialMetallicity_Z, mode);
+
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].CumNumSNe, out->append_MSP[k].CumNumSNe, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].CumNumSNII, out->append_MSP[k].CumNumSNII, mode);
+            ASSIGN_ADD_PRESET(SinkTempInfo[target].append_MSP[idx].CumNumSNIa, out->append_MSP[k].CumNumSNIa, mode);
+#endif
+#ifdef CLUSTER_SINK_DEBUG
+            if ((P[i].ID == DEBUG_ID) && ((out->append_MSP[k].Mass > 0) || (out->append_MSP[k].Age > 0))){
+                printf("[DEBUG - swallow - out2() - append] ThisTask %d, out %d - target %d, mode %d - k %d - append_MSP_Mass[k] %g, out %g - append_MSP_Age[k] %g, out %g, init %g - append SNII %g SNIa %g \n", ThisTask, out->ThisTask,
+                target, mode, k, SinkTempInfo[target].append_MSP[idx].Mass, out->append_MSP[k].Mass, 
+                SinkTempInfo[target].append_MSP[idx].Age, out->append_MSP[k].Age, out->append_MSP[k].InitialAge, 
+                SinkTempInfo[target].append_MSP[idx].CumNumSNII, SinkTempInfo[target].append_MSP[idx].CumNumSNIa);
+            }
+#endif
+        }
+    }
+#endif // ifndef CLUSTER_SINK_AVOID_MERGERS
+#endif // CLUSTER_SINK
 }
 
 
@@ -223,7 +317,9 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                     Vel_j[k] = P[j].Vel[k]; // this can get modified -a lot- below, so we need to read it carefully right now
                 }
                 double Mass_j_0 = Mass_j, InternalEnergy_j_0 = InternalEnergy_j, Vel_j_0[3]; for(k=0;k<3;k++) {Vel_j_0[k]=Vel_j[k];} // save initial values to know if we need to update neighbor values below
-                
+#ifdef CLUSTER_SINK
+                double Metallicity_j_0[NUM_METAL_SPECIES]; for(k=0;k<NUM_METAL_SPECIES;k++) {Metallicity_j_0[k]=P[j].Metallicity[k];} // save initial values 
+#endif       
                 Vec3<double> dpos = P[j].Pos - local.Pos;
                 Vec3<double> dvel{Vel_j[0]-local.Vel[0], Vel_j[1]-local.Vel[1], Vel_j[2]-local.Vel[2]};
                 nearest_xyz(dpos,-1); /*  find the closest image in the given box size  */
@@ -309,7 +405,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
 #endif
 
                     
-                    
+#ifndef CLUSTER_SINK_AVOID_MERGERS
                     if(P[j].Type == 5)  /* this is a sink-sink merger */
                     {
 #ifdef SINK_OUTPUT_MOREINFO
@@ -340,6 +436,119 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
 #ifdef SINK_COUNTPROGS
                         out.Sink_CountProgs += P[j].Sink_CountProgs;
 #endif
+#ifdef CLUSTER_SINK
+                        // accrete metals from another sink
+                        for(k=0;k<NUM_METAL_SPECIES;k++){out.accreted_MetalMass[k] += (Mass_j*Metallicity_j_0[k]);}
+
+                        int num_msps = 0;
+                        // sum up how many MSPs the sink is bringing
+                        for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ if(P[j].MSP[k].Mass > 0){ num_msps+=1; } } 
+ 
+#ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST // record it on file
+                       fprintf(FdCSMergingDetails,"%.16g %llu %g %2.16g %2.16g %2.16g %llu %g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %d\n", 
+                            All.Time, (unsigned long long)local.ID,local.Mass,local.Pos[0],local.Pos[1],local.Pos[2],  
+                            (unsigned long long)P[j].ID, Mass_j, (P[j].Pos[0]-local.Pos[0]),(P[j].Pos[1]-local.Pos[1]),(P[j].Pos[2]-local.Pos[2]), 
+                            (Vel_j[0]-local.Vel[0]),(Vel_j[1]-local.Vel[1]),(Vel_j[2]-local.Vel[2]), 
+                            P[j].Metallicity[0], P[j].Metallicity[1], P[j].Metallicity[2], P[j].Metallicity[3], P[j].Metallicity[4],
+                            P[j].Metallicity[5], P[j].Metallicity[6], P[j].Metallicity[7], P[j].Metallicity[8], P[j].Metallicity[9], P[j].Metallicity[10], num_msps); 
+                        fflush(FdCSMergingDetails);
+#endif
+                        out.ThisTask = ThisTask;
+                        // merge the MSPs
+                        for(k=0;k<CLUSTER_SINK_NUMMSP;k++){ // loop over MSPs in the ngb
+                            if(P[j].MSP[k].InitialMass == 0){continue;} // no more MSPs to explore
+
+#ifdef CLUSTER_SINK_DEBUG_INITPROPS
+                            double age_ngb_inmyr = evaluate_initial_stellar_age_Gyr_for_msp(j, k)*1e3; // initial age of the MSP in Myr
+                            double zh_ngb = P[j].MSP[k].InitialMetallicity_Z; // initial total metal mass fraction
+#else
+                            double age_ngb_inmyr = evaluate_stellar_age_Gyr_for_msp(j, k)*1e3; // initial age of the MSP in Myr
+                            double zh_ngb = P[j].MSP[k].Metallicity[0]; // initial total metal mass fraction
+#endif
+                            int idx_msp_main_sink = -1; // index of the MSP within the main sink to be combined with
+                            int idx_msp_to_append = -1; // index of the last MSP within the appending array in the output structure
+
+#ifdef CLUSTER_SINK_DEBUG
+                            if(ThisTask==37){
+                                printf("[DEBUG - swallow - evaluate] *WE HAVE A MERGER with %d MSPs!* - ThisTask %d - eating ID %d - MSP %d - Initial/Current Mass %g %g, Age %g, age_ngb_inmyr %g zh_ngb %g\n",
+                             num_msps, ThisTask, P[j].ID, k, P[j].MSP[k].InitialMass, P[j].MSP[k].Mass, P[j].MSP[k].Age, age_ngb_inmyr, zh_ngb);
+                            }
+#endif
+
+                            // should this MSP be combined with any of the existing ones in the main sink?
+                            for(int i=0;i<CLUSTER_SINK_NUMMSP;i++){ // loop over the MSPs in the main sink
+                                if((local.MSP_AgeInMyr[i] == All.Time)&&(local.MSP_Metallicity[i] == 0)){continue;}; //this population has not been initialized yet
+
+#ifdef CLUSTER_SINK_DEBUG
+                                if(ThisTask==37){
+                                    printf("[DEBUG - swallow - evaluate] ThisTask %d - main sink: MSP i %d age %g zh %g %g -- ngb: ID %d, age ngb %g, age difference %g, zh %g %g zh difference %g\n",
+                                    ThisTask, i, 
+                                    local.MSP_AgeInMyr[i], local.MSP_Metallicity[i], local.MSP_Metallicity[i]/All.SolarAbundances[0],
+                                    P[j].ID, age_ngb_inmyr, fabs(age_ngb_inmyr - local.MSP_AgeInMyr[i]), 
+                                    zh_ngb, zh_ngb/All.SolarAbundances[0], fabs(log10(zh_ngb/All.SolarAbundances[0]) - log10(local.MSP_Metallicity[i]/All.SolarAbundances[0])));
+                                }
+#endif
+
+                                // combine MSPs if within the age and metallicity ranges
+                                if ((fabs(age_ngb_inmyr - local.MSP_AgeInMyr[i]) < All.ClusterSink_Delta_AgeInMyr) 
+                                    && (fabs(log10(zh_ngb/All.SolarAbundances[0]) - log10(local.MSP_Metallicity[i]/All.SolarAbundances[0])) < All.ClusterSink_Delta_ZZSun)){ 
+                                    idx_msp_main_sink = i;
+                                    break;
+                                }
+
+                            }
+
+                            // if not, find the last free entry in the appending array
+                            if (idx_msp_main_sink < 0){ 
+                                for(int i=0;i<CLUSTER_SINK_NUMMSP;i++){ // loop over the MSPs in the output structure
+                                    if(out.append_MSP[i].InitialMass == 0){idx_msp_to_append = i; break;}
+                                }   
+                            }
+
+#ifdef CLUSTER_SINK_DEBUG
+                            if(ThisTask==37){
+                                printf("[DEBUG - swallow - evaluate] ThisTask %d - ngb ID %d, age %g, z %g - idx_msp_main_sink %d, idx_msp_to_append %d\n", ThisTask, P[j].ID, age_ngb_inmyr, zh_ngb, idx_msp_main_sink, idx_msp_to_append);
+                            }
+#endif
+                            assert(idx_msp_main_sink*idx_msp_to_append <= 0); // MRC - if they're both still negative, something is wrong
+
+                            // now, get the data of this MSP in the right array (combine vs append)
+                            if(idx_msp_main_sink >= 0){ // combine as a mass-weighting
+                                // note - the InitialAge and InitialMetallicity_Z fields do not need to be modified
+                                out.combined_MSP[idx_msp_main_sink].Mass += P[j].MSP[k].Mass;
+                                out.combined_MSP[idx_msp_main_sink].InitialMass += P[j].MSP[k].InitialMass;
+                                out.combined_MSP[idx_msp_main_sink].Age += P[j].MSP[k].Mass*P[j].MSP[k].Age;
+                                for(int l=0;l<NUM_METAL_SPECIES;l++){ out.combined_MSP[idx_msp_main_sink].Metallicity[l] += P[j].MSP[k].Mass*P[j].MSP[k].Metallicity[l];}
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+                                out.combined_MSP[idx_msp_main_sink].CumNumSNe += P[j].MSP[k].CumNumSNe;
+                                out.combined_MSP[idx_msp_main_sink].CumNumSNII += P[j].MSP[k].CumNumSNII;
+                                out.combined_MSP[idx_msp_main_sink].CumNumSNIa += P[j].MSP[k].CumNumSNIa;
+#endif
+                            } else if((idx_msp_main_sink < 0) && (idx_msp_to_append >= 0)){ // will be appended to the end of the array
+                                if(idx_msp_to_append >= CLUSTER_SINK_NUMMSP_ACCRETE){terminate("Trying to accrete more MSPs than we have space for");}
+
+                                out.append_MSP[idx_msp_to_append].Mass = P[j].MSP[k].Mass;
+                                out.append_MSP[idx_msp_to_append].InitialMass = P[j].MSP[k].InitialMass;
+                                out.append_MSP[idx_msp_to_append].InitialRh = P[j].MSP[k].InitialRh;
+                                out.append_MSP[idx_msp_to_append].Age = P[j].MSP[k].Age;
+                                out.append_MSP[idx_msp_to_append].InitialAge = P[j].MSP[k].InitialAge;
+                                assert(out.append_MSP[idx_msp_to_append].Age <= All.Time);
+                                assert(out.append_MSP[idx_msp_to_append].Age > 0); // tform = 0 make no sense
+
+                                for(int l=0;l<NUM_METAL_SPECIES;l++){
+                                    out.append_MSP[idx_msp_to_append].Metallicity[l] = P[j].MSP[k].Metallicity[l];
+                                    assert(out.append_MSP[idx_msp_to_append].Metallicity[l] <= 1);
+                                    assert(out.append_MSP[idx_msp_to_append].Metallicity[l] > 0);
+                                }
+                                out.append_MSP[idx_msp_to_append].InitialMetallicity_Z = P[j].MSP[k].InitialMetallicity_Z;
+#ifdef CLUSTER_SINK_OUTPUT_NUMSNE
+                                out.append_MSP[idx_msp_to_append].CumNumSNe = P[j].MSP[k].CumNumSNe;
+                                out.append_MSP[idx_msp_to_append].CumNumSNII = P[j].MSP[k].CumNumSNII;
+                                out.append_MSP[idx_msp_to_append].CumNumSNIa = P[j].MSP[k].CumNumSNIa;
+#endif
+                           }
+                        }
+#endif
                         bin = P[j].TimeBin;
                         #pragma omp atomic
                         TimeBin_Sink_mass[bin] -= P[j].Sink_Mass;
@@ -366,7 +575,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                         #pragma omp atomic
                         N_sink_swallowed++;
                     } // if(P[j].Type == 5) -- sink+sink merger
-
+#endif // ifndef CLUSTER_SINK_AVOID_MERGERS
 
                     
                     
@@ -400,6 +609,20 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
 #endif
 #if defined(SINK_SWALLOWGAS) && !defined(SINK_GRAVCAPTURE_GAS)
                         out.Sink_AccretionDeficit -= (f_accreted*Mass_j); /* account for this in the 'continuous accretion' budget, since it is part of the continuous Mdot onto the sink */
+#endif
+#ifdef CLUSTER_SINK
+                        for(k=0;k<NUM_METAL_SPECIES;k++){out.accreted_MetalMass[k] += (f_accreted*Mass_j*Metallicity_j_0[k]);}
+#ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST
+                        double ne=1, nh0=0, nHe0, nHepp, nhp, nHeII, temperature, mu_meanwt=1, rho=CellP[j].Density*All.cf_a3inv, u0=CellP[j].InternalEnergyPred; // pull various known thermal properties, prepare to extract others //
+                        double temp = ThermalProperties(u0, rho, j, &mu_meanwt, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp); // get thermodynamic properties, like neutral fraction, temperature, etc, that we will use below //
+                        fprintf(FdCSAccretionDetails,"%.16g %llu %g %2.16g %2.16g %2.16g %llu %g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g\n", 
+                            All.Time, (unsigned long long)local.ID,local.Mass,local.Pos[0],local.Pos[1],local.Pos[2],  
+                            (unsigned long long)P[j].ID, Mass_j, (P[j].Pos[0]-local.Pos[0]),(P[j].Pos[1]-local.Pos[1]),(P[j].Pos[2]-local.Pos[2]), 
+                            (Vel_j[0]-local.Vel[0]),(Vel_j[1]-local.Vel[1]),(Vel_j[2]-local.Vel[2]), CellP[j].InternalEnergy, temp, CellP[j].Density * All.cf_a3inv, CellP[j].Pressure,
+                            P[j].Metallicity[0], P[j].Metallicity[1], P[j].Metallicity[2], P[j].Metallicity[3], P[j].Metallicity[4],
+                            P[j].Metallicity[5], P[j].Metallicity[6], P[j].Metallicity[7], P[j].Metallicity[8], P[j].Metallicity[9], P[j].Metallicity[10]); 
+                        fflush(FdCSAccretionDetails);
+#endif
 #endif
                         double Mass_initial = Mass_j; // save this for possible IO below
                         Mass_j *= (1-f_accreted);
