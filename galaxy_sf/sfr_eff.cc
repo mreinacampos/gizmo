@@ -704,7 +704,7 @@ void star_formation_parent_routine(void)
 #ifdef CLUSTER_SINK_OUTPUT_FORMPROPS
                         // save properties of the natal environment of the sink
                         double ne=1, nh0=0, nHe0, nHepp, nhp, nHeII, temperature, mu_meanwt=1, rho=CellP[i_star].Density*All.cf_a3inv, u0=CellP[i_star].InternalEnergyPred; // pull various known thermal properties, prepare to extract others //
-                        double temp = ThermalProperties(u0, rho, i_star, &mu_meanwt, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp); // get thermodynamic properties, like neutral fraction, temperature, etc, that we will use below //
+                        double temp = ThermalProperties(u0, rho, i_star, &mu_meanwt, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp, P, CellP); // get thermodynamic properties, like neutral fraction, temperature, etc, that we will use below //
                         double dv2_abs = ((1./2.)*((CellP[i_star].Gradients.Velocity[1][0]+CellP[i_star].Gradients.Velocity[0][1])*(CellP[i_star].Gradients.Velocity[1][0]+CellP[i_star].Gradients.Velocity[0][1]) // squared norm of the trace-free symmetric [shear] component of the velocity gradient tensor //
                                                 + (CellP[i_star].Gradients.Velocity[2][0]+CellP[i_star].Gradients.Velocity[0][2])*(CellP[i_star].Gradients.Velocity[2][0]+CellP[i_star].Gradients.Velocity[0][2]) + (CellP[i_star].Gradients.Velocity[2][1]+CellP[i_star].Gradients.Velocity[1][2])*(CellP[i_star].Gradients.Velocity[2][1]+CellP[i_star].Gradients.Velocity[1][2])) +
                                         (2./3.)*((CellP[i_star].Gradients.Velocity[0][0]*CellP[i_star].Gradients.Velocity[0][0] + CellP[i_star].Gradients.Velocity[1][1]*CellP[i_star].Gradients.Velocity[1][1] + CellP[i_star].Gradients.Velocity[2][2]*CellP[i_star].Gradients.Velocity[2][2]) - (CellP[i_star].Gradients.Velocity[1][1]*CellP[i_star].Gradients.Velocity[2][2] + CellP[i_star].Gradients.Velocity[0][0]*CellP[i_star].Gradients.Velocity[1][1] + CellP[i_star].Gradients.Velocity[0][0]*CellP[i_star].Gradients.Velocity[2][2]))) * All.cf_a2inv*All.cf_a2inv;
@@ -713,7 +713,7 @@ void star_formation_parent_routine(void)
                             All.Time, (unsigned long long)P[i_star].ID, P[i_star].Mass, P[i_star].Pos[0], P[i_star].Pos[1], P[i_star].Pos[2],  
                             P[i_star].Vel[0], P[i_star].Vel[1],P[i_star].Vel[2], 
                             CellP[i_star].InternalEnergyPred, temp, CellP[i_star].Density * All.cf_a3inv, CellP[i_star].Pressure,
-                            Get_Gas_effective_soundspeed_i(i_star), 
+                            CellP[i_star].effective_soundspeed(), 
                             Get_Particle_Size(i_star) * All.cf_atime, dv2_abs, CellP[i_star].SFing_AlphaVir, P[i_star].Min_Distance_to_Sink,
                             P[i_star].Metallicity[0], P[i_star].Metallicity[1], P[i_star].Metallicity[2], P[i_star].Metallicity[3], P[i_star].Metallicity[4],
                             P[i_star].Metallicity[5], P[i_star].Metallicity[6], P[i_star].Metallicity[7], P[i_star].Metallicity[8], P[i_star].Metallicity[9], P[i_star].Metallicity[10]); 

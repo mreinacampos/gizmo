@@ -31,7 +31,7 @@ void continuous_star_formation_in_sinks(void)
     double sp_mass = 0;
     int i, j;
     // loop over particles //
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    for (int i : ActiveParticleList)
     {
         if(P[i].Type != 5) {continue;} // only sinks can form multiple stellar populations
 

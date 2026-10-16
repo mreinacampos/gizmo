@@ -614,7 +614,7 @@ int sink_swallow_and_kick_evaluate(int target, int mode, int *exportflag, int *e
                         for(k=0;k<NUM_METAL_SPECIES;k++){out.accreted_MetalMass[k] += (f_accreted*Mass_j*Metallicity_j_0[k]);}
 #ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST
                         double ne=1, nh0=0, nHe0, nHepp, nhp, nHeII, temperature, mu_meanwt=1, rho=CellP[j].Density*All.cf_a3inv, u0=CellP[j].InternalEnergyPred; // pull various known thermal properties, prepare to extract others //
-                        double temp = ThermalProperties(u0, rho, j, &mu_meanwt, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp); // get thermodynamic properties, like neutral fraction, temperature, etc, that we will use below //
+                        double temp = ThermalProperties(u0, rho, j, &mu_meanwt, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp, P, CellP); // get thermodynamic properties, like neutral fraction, temperature, etc, that we will use below //
                         fprintf(FdCSAccretionDetails,"%.16g %llu %g %2.16g %2.16g %2.16g %llu %g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g %2.16g\n", 
                             All.Time, (unsigned long long)local.ID,local.Mass,local.Pos[0],local.Pos[1],local.Pos[2],  
                             (unsigned long long)P[j].ID, Mass_j, (P[j].Pos[0]-local.Pos[0]),(P[j].Pos[1]-local.Pos[1]),(P[j].Pos[2]-local.Pos[2]), 

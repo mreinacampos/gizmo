@@ -612,6 +612,7 @@
 #define SINK_INTERACT_ON_GAS_TIMESTEP // BH-gas interactions (feedback and accretion) occur with frequency set by the gas timestep
 #define GALSF_FB_MECHANICAL         // explicit algorithm including thermal+kinetic/momentum terms 
 #ifdef CLUSTER_SINK_RADIATION
+#define RADTRANSFER              // top-level switch to enable radiative transfer (RT) modules
 #define RT_SOURCE_INJECTION         // inject the luminosity from sources
 #define RT_SOURCES (16+32)          // need to allow sinks to emit */
 #define RT_SPEEDOFLIGHT_REDUCTION  (0.01)   // reduced speed of light -- needed for the M1 runs

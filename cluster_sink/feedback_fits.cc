@@ -202,7 +202,7 @@ void calculate_fb_mass_ejected_for_msps(struct fb_massloss_for_msp *fb_dm, int i
 
 #ifdef CLUSTER_SINK_WINDS
     // particle timestep in Myr
-    double dt = GET_PARTICLE_TIMESTEP_IN_PHYSICAL(i) * UNIT_TIME_IN_MYR;
+    double dt = get_particle_timestep_in_physical(i) * UNIT_TIME_IN_MYR;
 #ifdef SINK_INTERACT_ON_GAS_TIMESTEP
     dt = P[i].dt_since_last_gas_search * UNIT_TIME_IN_MYR;
 #endif
@@ -229,7 +229,7 @@ void reduce_mass_from_msps(void)
     int i, j;
     struct fb_massloss_for_msp fb_dm;
     // loop over all active particles //
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    for (int i : ActiveParticleList)
     {
         // future: maybe converts sinks to PartType 4
         // if((P[i].Type!=4)&&(P[i].Type!=5)) {continue;} // has this sink output feedback in this timestep?

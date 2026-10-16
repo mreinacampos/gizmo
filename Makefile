@@ -819,7 +819,6 @@ ifeq (DOUBLEPRECISION_FFTW,$(findstring DOUBLEPRECISION_FFTW,$(CONFIGVARS)))  # 
   FFTW_LIBNAMES = -lfftw3_mpi -lfftw3 # double-precision libraries
 else
   FFTW_LIBNAMES = -lfftw3f_mpi -lfftw3f # single-precision libraries
-  FFTW_LIBNAMES = -lrfftw_mpi -lfftw_mpi -lrfftw -lfftw # MRC - look for the right libraries
 endif
 endif
 

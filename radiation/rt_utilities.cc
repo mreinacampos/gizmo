@@ -71,17 +71,17 @@ int rt_get_source_luminosity(int i, int mode, double *lum, struct particle_data 
     double lum_msp[N_RT_FREQ_BINS]; 
     for(int k=0;k<N_RT_FREQ_BINS;k++) {lum[k] = 0; 
 #ifdef CLUSTER_SINK_OUTPUT_BOLLUM
-    P[i].TotalLuminosity[k] = 0;
+    pp[i].TotalLuminosity[k] = 0;
 #endif
     } // zero out the luminosity bins to avoid rubbish
     for (int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ // change the input quantities to the current MSP properties
-        if(P[i].MSP[j].Mass == 0){continue;} // this MSP has no FB
+        if(pp[i].MSP[j].Mass == 0){continue;} // this MSP has no FB
         for(int k=0;k<N_RT_FREQ_BINS;k++) {lum_msp[k] = 0;} // zero out the luminosity bins
-        active_check += rt_get_lum_band_stellarpopulation(i,mode,lum_msp,j); // get luminosities for star particles assuming they represent IMF-averaged populations
+        active_check += rt_get_lum_band_stellarpopulation(i,mode,lum_msp,pp, cell, j); // get luminosities for star particles assuming they represent IMF-averaged populations
         for(int k=0;k<N_RT_FREQ_BINS;k++) { // add up contributions of all MSPs
             lum[k] += lum_msp[k];
 #ifdef CLUSTER_SINK_OUTPUT_BOLLUM
-            P[i].TotalLuminosity[k] += lum_msp[k];
+            pp[i].TotalLuminosity[k] += lum_msp[k];
 #endif
         }
     }
@@ -335,6 +335,8 @@ int rt_get_lum_band_stellarpopulation(int i, int mode, double *lum, struct parti
 
 #ifdef CLUSTER_SINK
     double L = evaluate_light_to_mass_ratio(star_age, i, j) * m_sol / UNIT_LUM_IN_SOLAR; if(L<=0 || isnan(L)) {L=0;}
+#elif !defined(GALSF_FB_FIRE_RT_LONGRANGE)
+    double L = evaluate_light_to_mass_ratio(star_age, i) * m_sol / UNIT_LUM_IN_SOLAR; if(L<=0 || isnan(L)) {L=0;}
 #endif
     
 #if defined(GALSF_FB_FIRE_RT_LONGRANGE) /* three-band (UV, OPTICAL, IR) approximate spectra for stars as used in the FIRE (Hopkins et al.) models */
