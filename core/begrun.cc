@@ -2029,24 +2029,6 @@ void read_parameter_file(char *fname)
 #endif
 #endif
 
-#ifdef CLUSTER_SINK
-      strcpy(tag[nt], "ClusterSink_MinGasMass");
-      addr[nt] = &All.ClusterSink_MinGasMass;
-      id[nt++] = REAL;
-      strcpy(tag[nt], "ClusterSink_InitialRh");
-      addr[nt] = &All.ClusterSink_InitialRh;
-      id[nt++] = REAL;
-#ifndef CLUSTER_SINK_AVOID_MERGERS
-      strcpy(tag[nt], "ClusterSink_Delta_AgeInMyr");
-      addr[nt] = &All.ClusterSink_Delta_AgeInMyr;
-      id[nt++] = REAL;
-
-      strcpy(tag[nt], "ClusterSink_Delta_ZZSun");
-      addr[nt] = &All.ClusterSink_Delta_ZZSun;
-      id[nt++] = REAL;
-#endif
-#endif
-
 #if defined(EOS_TABULATED) && !defined(EOS_ANEOS)
         strcpy(tag[nt], "EosTable");
         addr[nt] = All.EosTable;
