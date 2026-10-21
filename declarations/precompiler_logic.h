@@ -605,7 +605,9 @@
 #define DEBUG_ID 1 
 #endif
 #define GALSF                       // top-level switch for galactic star formation model
+#ifndef CLUSTER_SINK_DEBUG_STARBOX
 #define COOLING                     // top-level switch to enable radiative cooling and heating
+#endif
 #define METALS                      // top-level switch to enable tracking metallicities or different heavy elements (with multiple species optional) for gas and stars
 #define SINK_PARTICLES                 // top-level switch for black holes (i.e. sink particles)
 #define SINK_CALC_DISTANCES           // calculate distance to nearest sink in gravity tree
