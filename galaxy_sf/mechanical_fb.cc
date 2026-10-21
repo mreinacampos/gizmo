@@ -749,7 +749,7 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 Mass_j += dM_ejecta_in;
                 out.M_coupled += dM_ejecta_in;
                 
-#ifdef CLUSTER_SINK_DEBUG
+#ifdef CLUSTER_SINK_DEBUG_MECHFB
                 // print the weights, and mass injected per cell
                 printf("[DEBUG - weights] ThisTask %d, ngb %d - local.Msne %g, pnorm %g, dM_ejecta_in %g, mj_preshock %g, massratio_ejecta %g - yields [0] %g - Metallicity pre/post [0] [%g %g]\n",
                      ThisTask, j, local.Msne, pnorm, dM_ejecta_in, mj_preshock, massratio_ejecta, local.yields[0], Metallicity_j[0], (1-massratio_ejecta)*Metallicity_j[0] + massratio_ejecta*local.yields[0]);
@@ -857,7 +857,7 @@ void verify_and_assign_local_mechfb_integrals(void)
 #endif
             double mf=m0+dm; /* save for below */
             for(k=0;k<NUM_METAL_SPECIES;k++) {P[j].Metallicity[k] = (m0/mf)*P[j].Metallicity[k] + (1./mf)*LocalGasMechFBInfoTemp[j].Z_injected[k];} /* update metallicity */
-#ifdef CLUSTER_SINK_DEBUG
+#ifdef CLUSTER_SINK_DEBUG_MECHFB
         int k = 0;
         printf("[DEBUG - verify_and_assign_local_mechfb_integrals - yields] - ThisTask %d, P[j].ID %d - yield k %d - mass: previous %g, current  %g, delta  %g - metal mass - previous %g, current %g, delta %g\n",
             ThisTask,P[j].ID,k,  m0, mf, mf-m0, m0*P[j].Metallicity[k], m0*P[j].Metallicity[k]+LocalGasMechFBInfoTemp[j].Z_injected[k], LocalGasMechFBInfoTemp[j].Z_injected[k]);    

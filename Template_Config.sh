@@ -349,6 +349,8 @@
 #CLUSTER_SINK_DEBUG_NOTHERMALLOSS      # avoid the thermal loss during the injection of FB
 #CLUSTER_SINK_DEBUG_INITPROPS      # debug option: use the initial properties of a MSP and the incoming material to decide whether to spawn a new population or not
 #CLUSTER_SINK_DEBUG_STARBOX     # debug option: create a single MSP in star-in-a-box tests
+#CLUSTER_SINK_DEBUG_STARBOX_TWOMSPS    # debug option: create two MSPs in star-in-a-box tests
+#CLUSTER_SINK_DEBUG_MECHFB    # debug option: print out details on the weighting of the mass and yields emitted
 
 ## ----------------------------------------------------------------------------------------------------
 # ----- output options

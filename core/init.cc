@@ -511,13 +511,30 @@ void init(void)
 #ifdef CLUSTER_SINK_DEBUG_STARBOX
         if((P[i].Type == 4) || (P[i].Type == 5)) 
         {
-                P[i].MSP[0].Mass = P[i].Mass; // mass of the first MSP
-                P[i].MSP[0].InitialMass = P[i].Mass; // initial mass of the first MSP
-                P[i].MSP[0].InitialRh = All.ClusterSink_InitialRh; // set the initial half-mass radius of the MSP to the value in the param file
-                P[i].MSP[0].Age = All.Time; // age of the first MSP
-                P[i].MSP[0].InitialAge = All.Time; // age of the first MSP
-                for(int k=0;k<NUM_METAL_SPECIES;k++){P[i].MSP[0].Metallicity[k] = P[i].Metallicity[k];} // metallicity of the first MSP
-                P[i].MSP[0].InitialMetallicity_Z = P[i].MSP[0].Metallicity[0]; // initial metallicity
+            P[i].Type = 5; // ensure that the particle is a sink particle
+            P[i].MSP[0].Mass = P[i].Mass; // mass of the first MSP
+            P[i].MSP[0].InitialMass = P[i].Mass; // initial mass of the first MSP
+            P[i].MSP[0].InitialRh = All.ClusterSink_InitialRh; // set the initial half-mass radius of the MSP to the value in the param file
+            P[i].MSP[0].Age = All.Time; // age of the first MSP
+            P[i].MSP[0].InitialAge = All.Time; // age of the first MSP
+            for(int k=0;k<NUM_METAL_SPECIES;k++){P[i].MSP[0].Metallicity[k] = P[i].Metallicity[k];} // metallicity of the first MSP
+            P[i].MSP[0].InitialMetallicity_Z = P[i].MSP[0].Metallicity[0]; // initial metallicity
+#ifdef CLUSTER_SINK_DEBUG_STARBOX_TWOMSPS
+            for(int j=1;j<2;j++)
+            {
+                P[i].MSP[j].Mass = P[i].Mass/2; // mass of the first MSP
+                P[i].MSP[j].InitialMass = P[i].Mass/2; // initial mass of the first MSP
+                P[i].MSP[j].InitialRh = All.ClusterSink_InitialRh; // set the initial half-mass radius of the MSP to the value in the param file
+                P[i].MSP[j].Age = All.Time; // age of the first MSP
+                P[i].MSP[j].InitialAge = All.Time; // age of the first MSP
+                for(int k=0;k<NUM_METAL_SPECIES;k++){P[i].MSP[j].Metallicity[k] = P[i].Metallicity[k];} // metallicity of the first MSP
+                P[i].MSP[j].InitialMetallicity_Z = P[i].MSP[j].Metallicity[0]; // initial metallicity
+
+            }
+ #endif
+            printf("[CLUSTER_SINK_DEBUG_STARBOX] ThisTask %d, i %d, ID %lld - MSP initialised as: Mass %g, InitialMass %g, InitialRh %g, Age %g, InitialAge %g, Metallicity [%g, %g, %g, %g], InitialMetallicity_Z %g\n", 
+                ThisTask, i, (long long)P[i].ID, P[i].MSP[0].Mass, P[i].MSP[0].InitialMass, P[i].MSP[0].InitialRh, P[i].MSP[0].Age, P[i].MSP[0].InitialAge, P[i].MSP[0].Metallicity[0], P[i].MSP[0].Metallicity[1], P[i].MSP[0].Metallicity[2], P[i].MSP[0].Metallicity[3], P[i].MSP[0].InitialMetallicity_Z);
+            fflush(stdout);
         }
 #endif
         if(P[i].Type == 5)

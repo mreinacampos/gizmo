@@ -130,7 +130,8 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
     // total mass being ejected
     in->Msne = total_mass_snii + total_mass_snia + total_mass_winds;
     // velocity of the combined ejecta in code units
-    in->SNe_v_ejecta = sqrt(2.*(total_energy_snii + total_energy_snia + total_energy_winds)/in->Msne); 
+    if (in->Msne) in->SNe_v_ejecta = sqrt(2.*(total_energy_snii + total_energy_snia + total_energy_winds)/in->Msne); 
+    else in->SNe_v_ejecta = 0; // if no mass is ejected, set the velocity to zero
 
 #ifdef CLUSTER_SINK_DEBUG
     if (P[i].ID == DEBUG_ID){
@@ -139,15 +140,17 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
     }
 #endif
 #ifdef METALS
-    for(k=0;k<NUM_METAL_SPECIES;k++) {
-        in->yields[k] = (yields_snii[k] * total_mass_snii + yields_snia[k] * total_mass_snia + yields_winds[k] * total_mass_winds)/in->Msne;
+    if (in->Msne){
+        for(k=0;k<NUM_METAL_SPECIES;k++) {
+            in->yields[k] = (yields_snii[k] * total_mass_snii + yields_snia[k] * total_mass_snia + yields_winds[k] * total_mass_winds)/in->Msne;
 #ifdef CLUSTER_SINK_DEBUG
-    if (P[i].ID == DEBUG_ID){
-        printf("[DEBUG - set_fb_input_quantities_from_msps - yields] - ThisTask %d, P[i].ID %d - yield k %d, total_mass_snii %g, total_mass_snia %g, total_mass_winds %g - yields [%g, %g, %g] = [%g]\n",
-            ThisTask, P[i].ID, k, total_mass_snii, total_mass_snia, total_mass_winds, yields_snii[k], yields_snia[k], yields_winds[k], in->yields[k]);    }
+            if (P[i].ID == DEBUG_ID) printf("[DEBUG - set_fb_input_quantities_from_msps - yields] - ThisTask %d, P[i].ID %d - yield k %d, total_mass_snii %g, total_mass_snia %g, total_mass_winds %g - yields [%g, %g, %g] = [%g]\n",
+                    ThisTask, P[i].ID, k, total_mass_snii, total_mass_snia, total_mass_winds, yields_snii[k], yields_snia[k], yields_winds[k], in->yields[k]);    
 #endif
-        assert((in->yields[k] >= 0.)&&(in->yields[k] < 1.));
-    }
+        }
+    } else for(k=0;k<NUM_METAL_SPECIES;k++) in->yields[k] = 0; // if no mass is ejected, set the yields to zero
+
+    for(k=0;k<NUM_METAL_SPECIES;k++) assert((in->yields[k] >= 0.)&&(in->yields[k] < 1.));
 #endif
 
 

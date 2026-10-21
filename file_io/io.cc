@@ -4610,10 +4610,10 @@ void get_dataset_name(enum iofields blocknr, char *buf)
             strcpy(buf, "ClusterSink_MSPs_Age");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
-            strcpy(buf, "ClusterSink_MSPs_Age");
+            strcpy(buf, "ClusterSink_MSPs_InitialAge");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
-            strcpy(buf, "ClusterSink_MSPs_Age");
+            strcpy(buf, "ClusterSink_MSPs_InitialMetallicity");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
             strcpy(buf, "ClusterSink_MSPs_Metallicity");
