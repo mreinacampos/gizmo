@@ -563,6 +563,9 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
         double egy_RHS = p_coupled*p_coupled * S2 + p_coupled * S1; // kinetic energy change of surrounding medium
         momentum_to_couple_term_units = p_coupled;
         U_thermal_residual_tocouple = Energy_injected_codeunits - egy_RHS; /* required for energy conservation */
+#ifndef CLUSTER_SINK_DEBUG_NOTHERMALLOSS
+        U_thermal_residual_tocouple = Energy_injected_codeunits - p0_egycon*p0_egycon * S2 + p0_egycon * S1; // assume there is no mass loss - MRC
+#endif
     }
     
 #if defined(CR_DYNAMICAL_INJECTION_IN_SNE)
@@ -872,8 +875,12 @@ void verify_and_assign_local_mechfb_integrals(void)
                 double TE_0=m0*CellP[j].InternalEnergy; dTE=DMAX(-TE_0,dTE); /* ensure against non-negative values */
                 double dU = (-dm/mf)*CellP[j].InternalEnergy + (1./mf)*dTE; /* using new mass get updated internal energy */
                 double dt = get_particle_timestep_in_physical(j), implied_heating_cgs=(dU*UNIT_SPECEGY_IN_CGS*PROTONMASS_CGS)/(dt*UNIT_TIME_IN_CGS), typical_cooling_cgs=1.e-23*(CellP[j].Density*All.cf_a3inv*UNIT_DENSITY_IN_NHCGS);
+
+#ifndef CLUSTER_SINK_DEBUG_NOTHERMALLOSS
                 if((implied_heating_cgs < 0.3*typical_cooling_cgs) && (dt > MIN_REAL_NUMBER) && ((dU < 4.*CellP[j].InternalEnergy) || ((dU < 1000.*CellP[j].InternalEnergy) && ((dU+CellP[j].InternalEnergy)*U_TO_TEMP_UNITS*2./3.*1.28 < 5.e5)))) {CellP[j].DtInternalEnergy += dU/dt;} else {CellP[j].InternalEnergy += dU; CellP[j].InternalEnergyPred += dU;}
-                //CellP[j].InternalEnergy += dU; CellP[j].InternalEnergyPred += dU; /* update internal energy; simpler (old) way to do it - less accurate phase diagrams at high density, however */
+#else // MRC - activated for a test 
+                CellP[j].InternalEnergy += dU; CellP[j].InternalEnergyPred += dU; /* update internal energy; simpler (old) way to do it - less accurate phase diagrams at high density, however */
+#endif
             }
             double dKE=LocalGasMechFBInfoTemp[j].KE_injected, dp[3];
             if(dKE != 0 || LocalGasMechFBInfoTemp[j].p_injected[0] != 0 || LocalGasMechFBInfoTemp[j].p_injected[1] != 0 || LocalGasMechFBInfoTemp[j].p_injected[2] != 0 )

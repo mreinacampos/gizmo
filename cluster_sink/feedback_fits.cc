@@ -71,6 +71,11 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
         // total energy ejected per core-collapse SNe in code units
         double eps_z = DMAX(pow(zh + 1e-4, -0.12), 1);
         total_energy_snii += P[i].SNII_ThisTimeStep[j] * (eps_z*(1.e51/UNIT_ENERGY_IN_CGS));
+//#ifdef CLUSTER_SINK_DEBUG
+        //if (P[i].ID == DEBUG_ID){
+            printf("[DEBUG - set_fb_input_quantities_from_msps] - ThisTask %d, P[i].ID %d, j %d - MSP.Mass %g, MSP.Age %g - total_mass_snii %g, eps_z %g, SNII_ThisTimeStep %g, total_energy_snii %g\n", ThisTask, P[i].ID, j, P[i].MSP[j].Mass, evaluate_stellar_age_Gyr_for_msp(i, j)*1e3, total_mass_snii, eps_z, P[i].SNII_ThisTimeStep[j], total_energy_snii*UNIT_ENERGY_IN_CGS); // MRC
+        //}
+//#endif
 #ifdef METALS
         // yields ejected: as ejecta masses
         double total_z = 0.;
