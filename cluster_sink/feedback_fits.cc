@@ -338,15 +338,21 @@ double determine_sne_rates(int i, double dt)
         P[i].SNe_ThisTimeStep += P[i].SNII_ThisTimeStep[j] + P[i].SNIa_ThisTimeStep[j]; 
 #ifdef CLUSTER_SINK_DEBUG_ONESNE
         // debug: only one SNe
-        if (P[i].MSP[j].CumNumSNe > 0){ P[i].SNe_ThisTimeStep = 0; RSNe = 0; }
+        if (P[i].MSP[j].CumNumSNe > 0){ P[i].SNe_ThisTimeStep = 0; RSNe = 0; P[i].SNII_ThisTimeStep[j] = 0; P[i].SNIa_ThisTimeStep[j] = 0;}
 #endif
 
 #ifdef CLUSTER_SINK_WINDS 
         // do wind FB even when there are no SNe
-        if (P[i].SNe_ThisTimeStep == 0){ RSNe += 1; P[i].SNe_ThisTimeStep += 0.2;}
+        if (P[i].SNe_ThisTimeStep == 0){ RSNe += 0; P[i].SNe_ThisTimeStep += 0.2;}
 #endif 
-    }
 
+#ifdef CLUSTER_SINK_DEBUG
+        if ((P[i].ID == DEBUG_ID) && (j == 0)){
+            printf("[DEBUG - determine_sne_rates] - ThisTask %d, P[i].ID %d, j %d - MSP.Mass %g, MSP.Age %g - SNII %g, SNIa %g, SNe_ThisTimeStep %g, RSNe %g - P[i].MSP[j].CumNumSNe %g, P[i].MSP[j].CumNumSNII %g\n", ThisTask, P[i].ID, j, P[i].MSP[j].Mass, evaluate_stellar_age_Gyr_for_msp(i, j)*1e3, P[i].SNII_ThisTimeStep[j], P[i].SNIa_ThisTimeStep[j], P[i].SNe_ThisTimeStep, RSNe, P[i].MSP[j].CumNumSNe, P[i].MSP[j].CumNumSNII); // MRC
+        }
+#endif
+
+    }
     return RSNe;
 }
 
