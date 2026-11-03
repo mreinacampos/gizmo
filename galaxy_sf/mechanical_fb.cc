@@ -99,18 +99,18 @@ void determine_where_SNe_occur(void)
         if(P[i].SNe_ThisTimeStep>0) {ntotal+=P[i].SNe_ThisTimeStep; nhosttotal++;}
         dtmean += dt;
 
-//#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS - MRC
-//    if ((P[i].SNe_ThisTimeStep >= 0.2)){ // output FB gas properties every SNe or when statistics are output//
-//        int num_snia = 0, num_snii = 0;
-//        for(int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ if (P[i].MSP[j].Mass > 0) { num_snia += P[i].SNIa_ThisTimeStep[j]; num_snii += P[i].SNII_ThisTimeStep[j];} }
-//        // 0: Time, 1: ID, 2: Mass, 3-5: Pos, 6: total number of SNII, 7: total number of SNIa, 8: total number of SNe, 9: density within the kernel, 10: 
-//        fprintf(FdCSFBGasProps,"%.16g %llu %g %2.16g %2.16g %2.16g %d %d %2.16g %2.16g \n", 
-//            All.Time, (unsigned long long)P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],  
-//            num_snii, num_snia, P[i].SNe_ThisTimeStep, 
-//            P[i].DensityAroundParticle * All.cf_a3inv); 
-//        fflush(FdCSFBGasProps);
-//    }
-//#endif        
+#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS
+    if ((P[i].SNe_ThisTimeStep >= 0.2)){ // output FB gas properties every SNe or when statistics are output//
+        int num_snia = 0, num_snii = 0;
+        for(int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ if (P[i].MSP[j].Mass > 0) { num_snia += P[i].SNIa_ThisTimeStep[j]; num_snii += P[i].SNII_ThisTimeStep[j];} }
+        // 0: Time, 1: ID, 2: Mass, 3-5: Pos, 6: total number of SNII, 7: total number of SNIa, 8: total number of SNe, 9: density within the kernel, 10: 
+        fprintf(FdCSFBGasProps,"%.16g %llu %g %2.16g %2.16g %2.16g %d %d %2.16g %2.16g \n", 
+            All.Time, (unsigned long long)P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],  
+            num_snii, num_snia, P[i].SNe_ThisTimeStep, 
+            P[i].DensityAroundParticle * All.cf_a3inv); 
+        fflush(FdCSFBGasProps);
+    }
+#endif        
 
     } // for (int i : ActiveParticleList) //
 
@@ -563,9 +563,6 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
         double egy_RHS = p_coupled*p_coupled * S2 + p_coupled * S1; // kinetic energy change of surrounding medium
         momentum_to_couple_term_units = p_coupled;
         U_thermal_residual_tocouple = Energy_injected_codeunits - egy_RHS; /* required for energy conservation */
-#ifndef CLUSTER_SINK_DEBUG_NOTHERMALLOSS
-        U_thermal_residual_tocouple = Energy_injected_codeunits - p0_egycon*p0_egycon * S2 + p0_egycon * S1; // assume there is no mass loss - MRC
-#endif
     }
     
 #if defined(CR_DYNAMICAL_INJECTION_IN_SNE)
@@ -745,6 +742,7 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 mj_preshock = Mass_j;
                 massratio_ejecta = dM_ejecta_in / (dM_ejecta_in + Mass_j);
                 
+
                 /* inject actual mass from mass return */
                 int couple_anything_but_scalar_mass_and_metals = 1; // key to indicate whether or not we actually need to do the next set of steps beyond pure scalar mass+metal couplings //
                 if(P[j].KernelRadius<=0) {if(rho_j>0){rho_j*=(1+dM_ejecta_in/Mass_j);} else {rho_j=dM_ejecta_in*kernel.hinv3;}} else {rho_j+=kernel_zero*dM_ejecta_in*hinv3_j;}
@@ -752,11 +750,6 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                 Mass_j += dM_ejecta_in;
                 out.M_coupled += dM_ejecta_in;
                 
-#ifdef CLUSTER_SINK_DEBUG_MECHFB
-                // print the weights, and mass injected per cell
-                printf("[DEBUG - weights] ThisTask %d, ngb %d - local.Msne %g, pnorm %g, dM_ejecta_in %g, mj_preshock %g, massratio_ejecta %g - yields [0] %g - Metallicity pre/post [0] [%g %g]\n",
-                     ThisTask, j, local.Msne, pnorm, dM_ejecta_in, mj_preshock, massratio_ejecta, local.yields[0], Metallicity_j[0], (1-massratio_ejecta)*Metallicity_j[0] + massratio_ejecta*local.yields[0]);
-#endif
 #ifdef METALS   /* inject metals */
                 for(k=0;k<NUM_METAL_SPECIES-NUM_AGE_TRACERS;k++) {Metallicity_j[k]=(1-massratio_ejecta)*Metallicity_j[k] + massratio_ejecta*local.yields[k];}
                 if(NUM_ADDITIONAL_PASSIVESCALAR_SPECIES_FOR_YIELDS_AND_DIFFUSION>0 && loop_iteration < 2) {
@@ -798,7 +791,11 @@ int addFB_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                         }
                         KE_initial *= 0.5*mj_preshock*All.cf_a2inv; KE_final *= 0.5*Mass_j*All.cf_a2inv;
                     }
+#ifndef CLUSTER_SINK_DEBUG_NOTHERMALLOSS
                     double d_Egy_internal = pnorm * U_thermal_residual_tocouple; // simple scalar coupling
+#else
+                    double d_Egy_internal = KE_initial + pnorm * Energy_injected_codeunits - KE_final; /* now calculate the residual energy with option to add it as thermal */
+#endif
                     if(retain_thermal_flag==0) {d_Egy_internal=0;} // use flag to determined if we should retain this residual thermal energy for this stage
                     d_Egy_internal /= Mass_j; // convert to specific internal energy, finally //
 #ifndef MECHANICAL_FB_MOMENTUM_ONLY
@@ -860,11 +857,6 @@ void verify_and_assign_local_mechfb_integrals(void)
 #endif
             double mf=m0+dm; /* save for below */
             for(k=0;k<NUM_METAL_SPECIES;k++) {P[j].Metallicity[k] = (m0/mf)*P[j].Metallicity[k] + (1./mf)*LocalGasMechFBInfoTemp[j].Z_injected[k];} /* update metallicity */
-#ifdef CLUSTER_SINK_DEBUG_MECHFB
-        int k = 0;
-        printf("[DEBUG - verify_and_assign_local_mechfb_integrals - yields] - ThisTask %d, P[j].ID %d - yield k %d - mass: previous %g, current  %g, delta  %g - metal mass - previous %g, current %g, delta %g\n",
-            ThisTask,P[j].ID,k,  m0, mf, mf-m0, m0*P[j].Metallicity[k], m0*P[j].Metallicity[k]+LocalGasMechFBInfoTemp[j].Z_injected[k], LocalGasMechFBInfoTemp[j].Z_injected[k]);    
-#endif
 #if defined(GALSF_ISMDUSTCHEM_MODEL)
             update_ISMDustChem_after_mechanical_injection(j, LocalGasMechFBInfoTemp[j].Mass_Where_Dust_Shocked, m0, mf, LocalGasMechFBInfoTemp[j].Z_injected); /* update dust chemistry quantities */
 #endif
@@ -878,7 +870,7 @@ void verify_and_assign_local_mechfb_integrals(void)
 
 #ifndef CLUSTER_SINK_DEBUG_NOTHERMALLOSS
                 if((implied_heating_cgs < 0.3*typical_cooling_cgs) && (dt > MIN_REAL_NUMBER) && ((dU < 4.*CellP[j].InternalEnergy) || ((dU < 1000.*CellP[j].InternalEnergy) && ((dU+CellP[j].InternalEnergy)*U_TO_TEMP_UNITS*2./3.*1.28 < 5.e5)))) {CellP[j].DtInternalEnergy += dU/dt;} else {CellP[j].InternalEnergy += dU; CellP[j].InternalEnergyPred += dU;}
-#else // MRC - activated for a test 
+#else 
                 CellP[j].InternalEnergy += dU; CellP[j].InternalEnergyPred += dU; /* update internal energy; simpler (old) way to do it - less accurate phase diagrams at high density, however */
 #endif
             }
@@ -891,7 +883,7 @@ void verify_and_assign_local_mechfb_integrals(void)
                 double a0=dp2, b0=2.*pdp, c0=p2*dm/m0+2.*mf*dKE, sfac=b0*b0+4.*a0*c0, f0=0; /* assume coupled delta_p = f0*delta_p, and solve for the multiplier f0 that gives the desired total kinetic energy change */
                 if(sfac<=0 || !isfinite(sfac)) {if((fabs(a0)<1.e-40) || !isfinite(b0/a0)) {f0=0;} else {f0=-b0/(2.*a0);}} // catches for floating-point error
                     else {if((b0>0) && fabs(4.*a0*c0)<1.e-3*b0*b0) {f0=c0/b0;} // catches for floating-point error
-                    else {if(fabs(a0)<1.e-40 || !isfinite(a0)) {f0=0;} else {f0=(-b0+sqrt(b0*b0+4.*a0*c0))/(2.*a0);}}} // catches for floating-point error, if pass all of them, use exact solution for desired KE
+                    else {if(fabs(a0)<1.e-40 || !isfinite(a0)) {f0=0;} else {f0=(-b0+sqrt(b0*b0+4.*a0*c0))/(2.*a0);}}} // catches for floating-point error, if pass all of them, use exact solution for desired KE         
                 if(f0<0 || !isfinite(f0)) {f0=0;} else {if(f0>1.) {f0=1.;}} /* limit to physical values (should never be an issue but again because of float error it could be) */
                 for(k=0;k<3;k++) {
                     double dv = (-dm/mf)*P[j].Vel[k] + f0*(1./mf)*dp[k]*All.cf_atime; /* calculate total momentum change and mass change and therefore final velocity (in code units) */

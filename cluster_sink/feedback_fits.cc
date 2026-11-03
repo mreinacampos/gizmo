@@ -71,11 +71,6 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
         // total energy ejected per core-collapse SNe in code units
         double eps_z = DMAX(pow(zh + 1e-4, -0.12), 1);
         total_energy_snii += P[i].SNII_ThisTimeStep[j] * (eps_z*(1.e51/UNIT_ENERGY_IN_CGS));
-//#ifdef CLUSTER_SINK_DEBUG
-        //if (P[i].ID == DEBUG_ID){
-            printf("[DEBUG - set_fb_input_quantities_from_msps] - ThisTask %d, P[i].ID %d, j %d - MSP.Mass %g, MSP.Age %g - total_mass_snii %g, eps_z %g, SNII_ThisTimeStep %g, total_energy_snii %g\n", ThisTask, P[i].ID, j, P[i].MSP[j].Mass, evaluate_stellar_age_Gyr_for_msp(i, j)*1e3, total_mass_snii, eps_z, P[i].SNII_ThisTimeStep[j], total_energy_snii*UNIT_ENERGY_IN_CGS); // MRC
-        //}
-//#endif
 #ifdef METALS
         // yields ejected: as ejecta masses
         double total_z = 0.;
@@ -159,7 +154,7 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
 #endif
 
 
-#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS // output the gas and feedback properties for every active sink doing feedback // MRC - not 100% happy of this here
+/*#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS // output the gas and feedback properties for every active sink doing feedback // MRC - not 100% happy of this here
     int num_snia = 0, num_snii = 0;
     for(int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ if (P[i].MSP[j].Mass > 0) { num_snia += P[i].SNIa_ThisTimeStep[j]; num_snii += P[i].SNII_ThisTimeStep[j];} }
     // 0: Time, 1: ID, 2: Mass, 3: age in Myr, 4-6: Pos, 7: number of SNII per per step, 8: number of SNIa per step, 9: total number of SNe per step, 10: density within the kernel, 
@@ -172,7 +167,7 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
         yields_snia[0], yields_snia[1], yields_snia[2], yields_snia[3], yields_snia[4], yields_snia[5], yields_snia[6], yields_snia[7], yields_snia[8], yields_snia[9], yields_snia[10],
         yields_winds[0], yields_winds[1], yields_winds[2], yields_winds[3], yields_winds[4], yields_winds[5], yields_winds[6], yields_winds[7], yields_winds[8], yields_winds[9], yields_winds[10]);
         fflush(FdCSFBGasProps);
-#endif
+#endif*/
 }
 
 /** \brief Calculates the mass lost due to each feedbach mechanism from each multiple stellar populations
@@ -350,12 +345,6 @@ double determine_sne_rates(int i, double dt)
         // do wind FB even when there are no SNe
         if (P[i].SNe_ThisTimeStep == 0){ RSNe += 0; P[i].SNe_ThisTimeStep += 0.2;}
 #endif 
-
-#ifdef CLUSTER_SINK_DEBUG
-        if ((P[i].ID == DEBUG_ID) && (j == 0)){
-            printf("[DEBUG - determine_sne_rates] - ThisTask %d, P[i].ID %d, j %d - MSP.Mass %g, MSP.Age %g - SNII %g, SNIa %g, SNe_ThisTimeStep %g, RSNe %g - P[i].MSP[j].CumNumSNe %g, P[i].MSP[j].CumNumSNII %g\n", ThisTask, P[i].ID, j, P[i].MSP[j].Mass, evaluate_stellar_age_Gyr_for_msp(i, j)*1e3, P[i].SNII_ThisTimeStep[j], P[i].SNIa_ThisTimeStep[j], P[i].SNe_ThisTimeStep, RSNe, P[i].MSP[j].CumNumSNe, P[i].MSP[j].CumNumSNII); // MRC
-        }
-#endif
 
     }
     return RSNe;

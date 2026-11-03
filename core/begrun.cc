@@ -729,7 +729,7 @@ void open_outputfiles(void)
       fprintf(FdCSFormationDetails,"%s   (16) Turbulent velocity variance dv*dv [physical code units] from deviatoric shear tensor \n",prefix_char);
       fprintf(FdCSFormationDetails,"%s   (17) Virial parameter of the natal cell [code units] \n",prefix_char);
       fprintf(FdCSFormationDetails,"%s   (18) Minimum distance to nearest (other) sink [code units] \n",prefix_char);
-      fprintf(FdCSFormationDetails,"%s   (19-28) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+      fprintf(FdCSFormationDetails,"%s   (19-28) Metallicities as mass fractions [code units] \n",prefix_char); 
     }
 #endif
 #ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST
@@ -749,7 +749,7 @@ void open_outputfiles(void)
       fprintf(FdCSAccretionDetails,"%s   (16) Temperature of the accreted gas cell [code units] \n",prefix_char);
       fprintf(FdCSAccretionDetails,"%s   (17) Density of the accreted gas cell [physical code units] \n",prefix_char);
       fprintf(FdCSAccretionDetails,"%s   (18) Pressure of the accreted gas cell [code units] \n",prefix_char);
-      fprintf(FdCSAccretionDetails,"%s   (19-28) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+      fprintf(FdCSAccretionDetails,"%s   (19-28) Metallicities as mass fractions [code units] \n",prefix_char); 
   }
   snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%scluster_sink/sink_merginghist_%d.txt", All.OutputDir, ThisTask);
   if(!(FdCSMergingDetails = fopen(buf, mode))) {printf("error in opening file '%s'\n", buf); endrun(1);}
@@ -780,11 +780,11 @@ void open_outputfiles(void)
     fprintf(FdCSFBGasProps,"%s   (9) Number of SNIa \n",prefix_char);
     fprintf(FdCSFBGasProps,"%s   (10) Number of SNe \n",prefix_char);
     fprintf(FdCSFBGasProps,"%s   (11) Density within the kernel [physical code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (12-14) Total mass ejected by SNII, SNIa and winds [code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (15-17) Total energy ejected by SNII, SNIa and winds [code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (18-28) Yields ejected by SNII [mass fractions] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (29-39) Yields ejected by SNIa [mass fractions] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (40-50) Yields ejected by winds [mass fractions] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (12-14) Total mass ejected by SNII, SNIa and winds [code units] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (15-17) Total energy ejected by SNII, SNIa and winds [code units] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (18-28) Yields ejected by SNII [mass fractions] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (29-39) Yields ejected by SNIa [mass fractions] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (40-50) Yields ejected by winds [mass fractions] \n",prefix_char);
 }
 #endif
 #endif

@@ -605,7 +605,7 @@
 #define DEBUG_ID 1 
 #endif
 #define GALSF                       // top-level switch for galactic star formation model
-#ifndef CLUSTER_SINK_DEBUG_STARBOX
+#ifndef CLUSTER_SINK_DEBUG_NOTHERMALLOSS
 #define COOLING                     // top-level switch to enable radiative cooling and heating
 #endif
 #define METALS                      // top-level switch to enable tracking metallicities or different heavy elements (with multiple species optional) for gas and stars
