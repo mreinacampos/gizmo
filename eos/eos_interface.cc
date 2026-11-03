@@ -13,7 +13,9 @@
 #include "../declarations/allvars.h"
 
 #ifdef EOS_HELMHOLTZ
+extern "C" {
 #include "helmholtz/helm_wrap.h"
+}
 #endif
 
 #define BITMASK_SET_FLAG(BITMASK,FLAG)      (BITMASK) |= (FLAG)

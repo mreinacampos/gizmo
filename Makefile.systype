@@ -6,12 +6,15 @@
 #
 #############
 
-
 #SYSTYPE="github-ubuntu"
 #SYSTYPE="Frontera"
 #SYSTYPE="MacBookCellar"
 #SYSTYPE="Expanse"
 #SYSTYPE="CaltechHPC"
 #SYSTYPE="RUSTY"
+#SYSTYPE="RUSTY_GENOA"
+#SYSTYPE="RUSTY_ROME" 
+#SYSTYPE="RUSTY_ICELAKE"
+SYSTYPE="Trillium"
 #SYSTYPE="nibi"
 #SYSTYPE="nibi-debug"

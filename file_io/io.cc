@@ -50,7 +50,10 @@ void savepositions(int num)
 #endif
 
     rearrange_particle_sequence();
-    /* ensures that new tree will be constructed */
+    /* push the tree-age counter over threshold so the next ladder condemns and rebuilds the
+       tree. Largely redundant with the rearrange-side protocol (a changed list raises the flag
+       itself), but harmless: the rebuild is cheap and this also covers the unchanged-list case
+       where only positions moved during the output drift. */
     All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
 
 
@@ -155,7 +158,7 @@ void savepositions(int num)
     }
 #endif
 
-#ifdef OUTPUT_POWERSPEC
+#if defined(OUTPUT_POWERSPEC) && defined(PMGRID) && defined(BOX_PERIODIC)
     if(RestartFlag != 4)
     {
         if(ThisTask == 0)
@@ -210,6 +213,9 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                     for(k = 0; k < 3; k++)
                     {
                         fp_pos[k] = (MyOutputPosFloat) P[pindex].Pos[k];
+#ifdef RANDOMIZE_GRAVTREE_PERIODIC
+                        fp_pos[k] -= (MyOutputPosFloat) All.RandomShift[k]; /* un-shift the RANDOMIZE_GRAVTREE frame so snapshots hold physical coords; wrap below refolds */
+#endif
 #ifdef BOX_PERIODIC
                         double box_length_xyz;
                         if(k==0) {box_length_xyz = boxSize_X;}
@@ -261,6 +267,17 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                 }
             break;
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:	/* IC tag defining the nuclear-zoom refinement anchor */
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    *ip++ = (MyIDType) P[pindex].Refinement_Flag;
+                    n++;
+                }
+            break;
+#endif
+
         case IO_MASS:		/* particle mass */
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
@@ -310,7 +327,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                     *fp++ = (MyOutputFloat) CellP[pindex].grHI;
 #else
                     double u, ne, nh0 = 0, mu = 1, temp, nHeII, nhp, nHe0, nHepp; u = DMAX(All.MinEgySpec, CellP[pindex].InternalEnergy); // needs to be in code units
-                    temp = ThermalProperties(u, CellP[pindex].Density * All.cf_a3inv, pindex, &mu, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp);
+                    temp = ThermalProperties(u, CellP[pindex].Density * All.cf_a3inv, pindex, &mu, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp, P, CellP);
                     *fp++ = (MyOutputFloat) nh0;
 #endif
                     n++;
@@ -352,14 +369,25 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             break;
                         
         case IO_UNSPMASS:
-#if defined(SINK_WIND_SPAWN) && defined(OUTPUT_UNSPAWNED_SINKMASS)
+#if defined(SINK_WIND_SPAWN)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
                     *fp++ = (MyOutputFloat) P[pindex].unspawned_wind_mass;
                     n++;
                 }
-#endif           
+#endif
+            break;
+
+        case IO_UNSPJETMASS:
+#if defined(SINK_WIND_SPAWN) && defined(SINGLE_STAR_FB_JETS)
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    *fp++ = (MyOutputFloat) P[pindex].unspawned_jet_mass;
+                    n++;
+                }
+#endif
             break;
             
         case IO_CRATE:
@@ -508,7 +536,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = (MyOutputFloat) P[pindex].Metallicity[0]*return_dust_to_metals_ratio_vs_solar(pindex,0);
+                    *fp++ = (MyOutputFloat) P[pindex].Metallicity[0]*return_dust_to_metals_ratio_vs_solar(pindex,0, P, CellP);
                     n++;
                 }
 #endif
@@ -563,7 +591,27 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    for(k=0;k<NUM_METAL_SPECIES;k++) {fp[k] = (MyOutputFloat) P[pindex].Metallicity[k];}
+                    for(k=0;k<NUM_METAL_SPECIES;k++)
+                    {
+                        MyOutputFloat val = (MyOutputFloat) P[pindex].Metallicity[k];
+#if defined(IO_COMPRESS_HDF5) && !defined(OUTPUT_IN_DOUBLEPRECISION)
+                        /* Drop the low 13 mantissa bits of the float32, leaving ~3 significant
+                           decimal digits, so shuffle+deflate can compress this field -- it is the
+                           largest block in a STARFORGE snapshot (NUM_METAL_SPECIES wide).
+                           Gated on IO_COMPRESS_HDF5: without it the fidelity is spent for nothing.
+                           Rounded, not masked: masking alone truncates toward zero, so every value
+                           loses magnitude and the mean relative error is -3.4e-4 rather than ~0.
+                           memcpy, not a pointer cast: reading a float through unsigned int* is a
+                           strict-aliasing violation; the memcpys compile to register moves. */
+                        {
+                            uint32_t b; memcpy(&b, &val, sizeof(b));
+                            b += 0xFFFu + ((b >> 13) & 1u);   /* round-to-nearest-even */
+                            b &= 0xFFFFE000u;
+                            memcpy(&val, &b, sizeof(b));
+                        }
+#endif
+                        fp[k] = val;
+                    }
                     fp += NUM_METAL_SPECIES;
                     n++;
                 }
@@ -590,7 +638,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
         break;
             
         case IO_DUSTCHEMSPECIESMET:    /* gas dust species following Species routines */
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
@@ -653,23 +701,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 #endif
         break;
         
-        case IO_DUSTCHEMGRAINBINSLOPES:    /* slopes for each grain size bin for each dust species */
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO) 
-            for(n = 0; n < pc; pindex++)
-                if(P[pindex].Type == type)
-                {
-                    int k1, k2;
-                    for(k1=0;k1<NUM_ISMDUSTCHEM_SPECIES;k1++) {
-                        for(k2=0;k2<NUM_ISMDUSTCHEM_SIZE_BINS;k2++) {    
-                                fp[NUM_ISMDUSTCHEM_SIZE_BINS*k1 + k2] = (MyOutputFloat) (CellP[pindex].ISMDustChem_Dust_SlopeInBin[k1][k2] / (UNIT_GRAIN_NUMBER/(UNIT_GRAIN_LENGTH*UNIT_GRAIN_LENGTH)));
-                            }
-                    }
-                    fp += (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
-                    n++;
-                }
-#endif
-        break;
-
         case IO_DUSTCHEMGRAINBINMASS:    /* mass for each grain size bin for each dust species */
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
             for(n = 0; n < pc; pindex++)
@@ -686,38 +717,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                 }
 #endif
         break;
-
-case IO_DUSTCHEM_COAG_MASSRATE:    /* coagulation rate for each grain size bin for each dust species */
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
-            for(n = 0; n < pc; pindex++)
-                if(P[pindex].Type == type)
-                {
-                    int k1, k2;
-                    for(k1=0;k1<NUM_ISMDUSTCHEM_SPECIES;k1++) {
-                        for(k2=0;k2<NUM_ISMDUSTCHEM_SIZE_BINS;k2++) {    
-                                fp[NUM_ISMDUSTCHEM_SIZE_BINS*k1 + k2] = (MyOutputFloat) (CellP[pindex].ISMDustChem_Coag_dMdt[k1][k2] / (UNIT_MASS_IN_CGS/UNIT_TIME_IN_CGS));
-                            }
-                    }
-                    fp += (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
-                    n++;
-                }
-#endif
-
-case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin for each dust species */
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
-            for(n = 0; n < pc; pindex++)
-                if(P[pindex].Type == type)
-                {
-                    int k1, k2;
-                    for(k1=0;k1<NUM_ISMDUSTCHEM_SPECIES;k1++) {
-                        for(k2=0;k2<NUM_ISMDUSTCHEM_SIZE_BINS;k2++) {    
-                                fp[NUM_ISMDUSTCHEM_SIZE_BINS*k1 + k2] = (MyOutputFloat) (CellP[pindex].ISMDustChem_Shat_dMdt[k1][k2] / (UNIT_MASS_IN_CGS/UNIT_TIME_IN_CGS));
-                            }
-                    }
-                    fp += (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
-                    n++;
-                }
-#endif
 
         case IO_CHIMES_ABUNDANCES:
 #ifdef CHIMES
@@ -845,7 +844,7 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
                     *fp++ = (MyOutputFloat) CellP[pindex].MolecularMassFraction_perNeutralH; /* more useful to output this particular value, rather than fH2 */
 #else
                     double u, ne, nh0 = 0, mu = 1, temp, nHeII, nhp, nHe0, nHepp; u = DMAX(All.MinEgySpec, CellP[pindex].InternalEnergy); // needs to be in code units
-                    temp = ThermalProperties(u, CellP[pindex].Density * All.cf_a3inv, pindex, &mu, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp);
+                    temp = ThermalProperties(u, CellP[pindex].Density * All.cf_a3inv, pindex, &mu, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp, P, CellP);
                     *fp++ = (MyOutputFloat) CellP[pindex].MolecularMassFraction; /* we call the subroutine above to make sure this quantity is as up-to-the-moment updated as possible, going into our next routine */
 #endif
                     n++;
@@ -870,6 +869,64 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
                 if(P[pindex].Type == type)
                 {
                     *fp++ = (MyOutputFloat) P[pindex].Min_Distance_to_Sink;
+                    n++;
+                }
+#endif
+            break;
+
+        case IO_HERMITE_POS:
+        case IO_HERMITE_VEL:
+#ifdef IO_HERMITE_SYNC
+            /* A mutually consistent (r,v) pair at the output time. The ordinary Coordinates and
+             * Velocities are not one: positions are drifted to the output time while velocities
+             * are from the last kick (see IO_VEL), so vis-viva, orbital elements and kinetic energy
+             * computed from them are meaningless. A Hermite particle retains its step base, so its
+             * state anywhere in the step is the predictor's Taylor series,
+             *     x(D) = OldPos + OldVel*D + Hermite_OldAcc*D^2/2 + OldJerk*D^3/6
+             *     v(D) = OldVel + Hermite_OldAcc*D + OldJerk*D^2/2
+             * with D from the particle's own step start: the predicted rather than corrected state,
+             * 4th order in position and 3rd in velocity. Non-Hermite particles fall back to the
+             * ordinary values, so the datasets are always defined. */
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    /* The Old* members only exist when HERMITE_INTEGRATION is compiled in, so
+                       the predictor below must sit inside the #ifdef -- a runtime guard alone
+                       would not compile under DISABLE_HERMITE_INTEGRATION. In that build the
+                       datasets simply carry the ordinary Pos/Vel via the fallback below. */
+                    int _herm = 0;
+#ifdef HERMITE_INTEGRATION
+                    /* the full eligibility predicate, not the type bitmask alone: a star being
+                       super-timestepped or in its born-yesterday settling window is advanced by
+                       KDK, so its retained base does not describe where it goes and the plain
+                       drifted values are the right ones for it. NB the reference snapshot of
+                       an energy diagnostic must come from ELIGIBLE stars -- IC-read sinks carry
+                       an explicit (negative) StellarFormationTime for exactly this reason */
+                    _herm = (P[pindex].Mass > 0) && eligible_for_hermite(pindex);
+                    if(_herm)
+                    {
+                        double _d = get_gravkick_factor(P[pindex].Ti_begstep, All.Ti_Current, pindex, 0);
+                        for(k = 0; k < 3; k++)
+                        {
+                            if(blocknr == IO_HERMITE_POS)
+                                fp[k] = (MyOutputFloat) (P[pindex].OldPos[k]
+                                        + (P[pindex].OldVel[k]
+                                           + (P[pindex].Hermite_OldAcc[k]
+                                              + P[pindex].OldJerk[k] * (_d/3)) * (_d/2)) * _d);
+                            else
+                                fp[k] = (MyOutputFloat) (P[pindex].OldVel[k]
+                                        + (P[pindex].Hermite_OldAcc[k]
+                                           + P[pindex].OldJerk[k] * (_d/2)) * _d);
+                        }
+                    }
+#endif
+                    if(!_herm)
+                    {
+                        for(k = 0; k < 3; k++)
+                            fp[k] = (MyOutputFloat) (blocknr == IO_HERMITE_POS
+                                                     ? P[pindex].Pos[k] : P[pindex].Vel[k]);
+                    }
+                    fp += 3;
                     n++;
                 }
 #endif
@@ -934,7 +991,7 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = (MyOutputFloat) (GET_PARTICLE_TIMESTEP_IN_PHYSICAL(pindex));
+                    *fp++ = (MyOutputFloat) (get_particle_timestep_in_physical(pindex));
                     n++;
                 }
 #endif
@@ -945,7 +1002,7 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    for(k=0;k<3;k++) {fp[k] = (MyOutputFloat) (Get_Gas_BField(pindex,k) * All.cf_a2inv * gizmo2gauss);}
+                    {Vec3<double> Btmp = CellP[pindex].Bfield() * All.cf_a2inv * gizmo2gauss; for(k=0;k<3;k++) {fp[k] = (MyOutputFloat) Btmp[k];}}
                     fp += 3;
                     n++;
                 }
@@ -1045,7 +1102,7 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
                 if(P[pindex].Type == type)
                 {
                     //for(k=0;k<N_CR_PARTICLE_BINS;k++) {fp[k] = CellP[pindex].CosmicRay_PwrLaw_Slopes_in_Bin[k];} // write out the saved slope
-                    for(k=0;k<N_CR_PARTICLE_BINS;k++) {fp[k] = (MyOutputFloat) CR_return_spectral_slope_target(pindex,k);} // calculate the slope to write out
+                    for(k=0;k<N_CR_PARTICLE_BINS;k++) {fp[k] = (MyOutputFloat) CR_return_spectral_slope_target(pindex,k, CellP);} // calculate the slope to write out
                     fp += N_CR_PARTICLE_BINS;
                     n++;
                 }
@@ -1181,7 +1238,7 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    double ne = CellP[pindex].Ne, ne_out=ne; u = CellP[pindex].InternalEnergyPred; tcool = GetCoolingTime(u, CellP[pindex].Density * All.cf_a3inv, ne, &ne_out, pindex); /* get cooling time */
+                    double ne = CellP[pindex].Ne, ne_out=ne; u = CellP[pindex].InternalEnergyPred; tcool = GetCoolingTime(u, CellP[pindex].Density * All.cf_a3inv, ne, &ne_out, pindex, P, CellP); /* get cooling time */
                     double coolrate_to_output = 0; if(tcool != 0) {coolrate_to_output = u / tcool;} /* convert cooling time with current thermal energy to du/dt */
                     *fp++ = (MyOutputFloat) coolrate_to_output;
                     n++;
@@ -1403,23 +1460,12 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
             break;
 
         case IO_EOSTEMP:
-#ifdef EOS_CARRIES_TEMPERATURE
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
                     *fp++ = (MyOutputFloat) CellP[pindex].Temperature;
                     n++;
                 }
-#elif defined(OUTPUT_TEMPERATURE)
-            for(n = 0; n < pc; pindex++)
-                if(P[pindex].Type == type)
-                {
-                    double u, ne, nh0 = 0, mu = 1, temp, nHeII, nhp, nHe0, nHepp; u = DMAX(All.MinEgySpec, CellP[pindex].InternalEnergy); // needs to be in code units
-                    temp = ThermalProperties(u, CellP[pindex].Density * All.cf_a3inv, pindex, &mu, &ne, &nh0, &nhp, &nHe0, &nHeII, &nHepp);
-                    *fp++ = (MyOutputFloat) temp;
-                    n++;
-                }	    
-#endif
             break;
 
         case IO_PRESSURE:
@@ -1483,11 +1529,22 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
             break;
 
             case IO_EOSCOMP:
-#ifdef EOS_TILLOTSON
+#if defined(EOS_TILLOTSON) || defined(EOS_ANEOS)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
                     *ip_int++ = (int) CellP[pindex].CompositionType;
+                    n++;
+                }
+#endif
+            break;
+
+            case IO_EOSPHASE:
+#ifdef EOS_ANEOS
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    *ip_int++ = (int) CellP[pindex].PhaseID;
                     n++;
                 }
 #endif
@@ -1580,7 +1637,7 @@ case IO_DUSTCHEM_SHAT_MASSRATE:    /* shattering rate for each grain size bin fo
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    for(k=0;k<6;k++) {int kf; for(kf=0;kf<N_RT_FREQ_BINS;kf++) {fp[N_RT_FREQ_BINS*k + kf] = (MyOutputFloat) CellP[pindex].ET[kf][k];}}
+                    for(k=0;k<6;k++) {int kf; for(kf=0;kf<N_RT_FREQ_BINS;kf++) {fp[N_RT_FREQ_BINS*k + kf] = (MyOutputFloat) CellP[pindex].ET[kf].data[k];}}
                     fp += 6*N_RT_FREQ_BINS;
                     n++;
                 }
@@ -2024,6 +2081,8 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
 
         case IO_VEL:
         case IO_PARTVEL:
+        case IO_HERMITE_POS:
+        case IO_HERMITE_VEL:
         case IO_ACCEL:
         case IO_HYDROACCEL:
         case IO_BFLD:
@@ -2047,9 +2106,16 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
             bytes_per_blockelement = sizeof(MyIDType);
             break;
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            bytes_per_blockelement = sizeof(MyIDType);
+            break;
+#endif
+
         case IO_SINKPROGS:
         case IO_GRAINTYPE:
         case IO_EOSCOMP:
+        case IO_EOSPHASE:
         case IO_STAGE_PROTOSTAR:
             bytes_per_blockelement = sizeof(int);
             break;
@@ -2067,6 +2133,7 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
         case IO_RAD_TEMP:
         case IO_DUST_TEMP:
         case IO_UNSPMASS:
+        case IO_UNSPJETMASS:
         case IO_CRATE:
         case IO_HRATE:
         case IO_NHRATE:
@@ -2232,7 +2299,7 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
             break;
 
         case IO_DUSTCHEMSPECIESMET:
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             if(mode)
                 bytes_per_blockelement = (NUM_ISMDUSTCHEM_SPECIES) * sizeof(MyInputFloat);
             else
@@ -2269,9 +2336,6 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
 
         case IO_DUSTCHEMGRAINBINNUMBERS:
         case IO_DUSTCHEMGRAINBINMASS:
-        case IO_DUSTCHEMGRAINBINSLOPES:
-        case IO_DUSTCHEM_COAG_MASSRATE:
-        case IO_DUSTCHEM_SHAT_MASSRATE:
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
             if(mode)
                 bytes_per_blockelement = (NUM_ISMDUSTCHEM_SPECIES * NUM_ISMDUSTCHEM_SIZE_BINS) * sizeof(MyInputFloat);
@@ -2385,9 +2449,16 @@ int get_datatype_in_block(enum iofields blocknr)
             typekey = 2;		/* native long long */
             break;
 
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            typekey = 2;		/* native long long */
+            break;
+#endif
+
         case IO_SINKPROGS:
         case IO_GRAINTYPE:
         case IO_EOSCOMP:
+        case IO_EOSPHASE:
         case IO_STAGE_PROTOSTAR:
             typekey = 0;		/* native int */
             break;
@@ -2410,6 +2481,8 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_POS:
         case IO_VEL:
         case IO_PARTVEL:
+        case IO_HERMITE_POS:
+        case IO_HERMITE_VEL:
         case IO_ACCEL:
         case IO_HYDROACCEL:
         case IO_BFLD:
@@ -2424,6 +2497,9 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_ID:
         case IO_CHILD_ID:
         case IO_GENERATION_ID:
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+#endif
         case IO_MASS:
         case IO_SINK_DIST:
         case IO_U:
@@ -2436,6 +2512,7 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_RAD_TEMP:
         case IO_DUST_TEMP:
         case IO_UNSPMASS:
+        case IO_UNSPJETMASS:
         case IO_CRATE:
         case IO_HRATE:
         case IO_NHRATE:
@@ -2483,6 +2560,7 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_EOSABAR:
         case IO_EOSCS:
         case IO_EOSCOMP:
+        case IO_EOSPHASE:
         case IO_EOSYE:
         case IO_PRESSURE:
         case IO_SOFT:
@@ -2577,7 +2655,7 @@ int get_values_per_blockelement(enum iofields blocknr)
             break;
 
         case IO_DUSTCHEMSPECIESMET:
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             values = NUM_ISMDUSTCHEM_SPECIES;
 #endif
             break; 
@@ -2601,10 +2679,7 @@ int get_values_per_blockelement(enum iofields blocknr)
             break;
 
         case IO_DUSTCHEMGRAINBINNUMBERS:
-        case IO_DUSTCHEMGRAINBINSLOPES:
         case IO_DUSTCHEMGRAINBINMASS:
-        case IO_DUSTCHEM_COAG_MASSRATE:
-        case IO_DUSTCHEM_SHAT_MASSRATE:
 #if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
             values = (NUM_ISMDUSTCHEM_SPECIES*NUM_ISMDUSTCHEM_SIZE_BINS);
 #endif
@@ -2707,11 +2782,16 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
     {
         case IO_POS:
         case IO_VEL:
+        case IO_HERMITE_POS:
+        case IO_HERMITE_VEL:
         case IO_ACCEL:
         case IO_TSTP:
         case IO_ID:
         case IO_CHILD_ID:
         case IO_GENERATION_ID:
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+#endif
         case IO_POT:
         case IO_SOFT:
         case IO_AGS_HKERN:
@@ -2787,6 +2867,7 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_EOSCS:
         case IO_EOS_STRESS_TENSOR:
         case IO_EOSCOMP:
+        case IO_EOSPHASE:
         case IO_PRESSURE:
         case IO_VSTURB_DISS:
         case IO_VSTURB_DRIVE:
@@ -2819,10 +2900,7 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_MACHNUM:
         case IO_SHOCKMACHNUM:
         case IO_DUSTCHEMGRAINBINNUMBERS:
-        case IO_DUSTCHEMGRAINBINSLOPES:
         case IO_DUSTCHEMGRAINBINMASS:
-        case IO_DUSTCHEM_COAG_MASSRATE:
-        case IO_DUSTCHEM_SHAT_MASSRATE:
         case IO_CLUSTER_SINK_ALPHAVIR:
         case IO_CLUSTER_SINK_VDISP:
             for(i = 1; i < 6; i++) {typelist[i] = 0;}
@@ -2900,6 +2978,7 @@ long get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_SINKMASSALPHA:
         case IO_SINK_ANGMOM:
         case IO_UNSPMASS:
+        case IO_UNSPJETMASS:
         case IO_ACRB:
         case IO_SINKRAD:
         case IO_SINK_FORM_MASS:
@@ -2943,6 +3022,12 @@ int blockpresent(enum iofields blocknr)
         case IO_KERNELRADIUS:
             return 1;			/* always present */
             break;
+
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            return 1;			/* present iff the tag-anchor mode is compiled in */
+            break;
+#endif
 
         case IO_NE:
         case IO_NH:
@@ -3031,7 +3116,7 @@ int blockpresent(enum iofields blocknr)
             break;               
           
         case IO_DUSTCHEMSPECIESMET:
-#if (GALSF_ISMDUSTCHEM_MODEL & 2)
+#if defined(GALSF_ISMDUSTCHEM_MODEL)
             return 1;
 #endif
             break; 
@@ -3048,19 +3133,6 @@ int blockpresent(enum iofields blocknr)
             return 1;
 #endif
             break;
-
-            case IO_DUSTCHEMGRAINBINSLOPES:
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO) 
-            return 1;
-#endif
-            break;      
-
-            case IO_DUSTCHEM_COAG_MASSRATE:
-            case IO_DUSTCHEM_SHAT_MASSRATE:
-#if defined(GALSF_ISMDUSTCHEM_GRAINSIZEEVO)
-            return 1;
-#endif
-            break;   
 
         case IO_MACHNUM:
 #if defined(OUTPUT_MACH_NUMBER)
@@ -3156,9 +3228,15 @@ int blockpresent(enum iofields blocknr)
             break;
             
         case IO_UNSPMASS:
-#if defined(SINK_WIND_SPAWN) && defined(OUTPUT_UNSPAWNED_SINKMASS)
+#if defined(SINK_WIND_SPAWN)
+            return 1; /* mass already removed from the sink and awaiting spawning: evolving state, so written unconditionally rather than as an optional diagnostic -- otherwise a snapshot restart silently loses it */
+#endif
+            break;
+
+        case IO_UNSPJETMASS:
+#if defined(SINK_WIND_SPAWN) && defined(SINGLE_STAR_FB_JETS)
             return 1;
-#endif   
+#endif
             break;
 
         case IO_CRATE:
@@ -3187,6 +3265,13 @@ int blockpresent(enum iofields blocknr)
         case IO_VSTURB_DISS:
         case IO_VSTURB_DRIVE:
 #if defined(TURB_DRIVING)
+            return 1;
+#endif
+            break;
+
+        case IO_HERMITE_POS:
+        case IO_HERMITE_VEL:
+#ifdef IO_HERMITE_SYNC
             return 1;
 #endif
             break;
@@ -3440,11 +3525,7 @@ int blockpresent(enum iofields blocknr)
             break;
 
         case IO_EOSTEMP:
-#ifdef EOS_CARRIES_TEMPERATURE
             return 1;
-#elif defined(OUTPUT_TEMPERATURE)
-	    return 1;
-#endif
             break;
 
         case IO_PRESSURE:
@@ -3461,7 +3542,13 @@ int blockpresent(enum iofields blocknr)
             break;
 
         case IO_EOSCOMP:
-#ifdef EOS_TILLOTSON
+#if defined(EOS_TILLOTSON) || defined(EOS_ANEOS)
+            return 1;
+#endif
+            break;
+
+        case IO_EOSPHASE:
+#ifdef EOS_ANEOS
             return 1;
 #endif
             break;
@@ -3631,6 +3718,11 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
         case IO_GENERATION_ID:
             strncpy(label, "IDgn", 4);
             break;
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            strncpy(label, "RefF", 4);
+            break;
+#endif
         case IO_ID:
             strncpy(label, "ID  ", 4);
             break;
@@ -3660,7 +3752,10 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
             break;
         case IO_UNSPMASS:
             strncpy(label, "USPM", 4);
-            break;     
+            break;
+        case IO_UNSPJETMASS:
+            strncpy(label, "USPJ", 4);
+            break;
         case IO_CRATE:
             strncpy(label, "CRATE", 4);
             break;
@@ -3727,15 +3822,6 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
         case IO_DUSTCHEMGRAINBINNUMBERS:
             strncpy(label, "DBNU", 4);
             break;
-        case IO_DUSTCHEMGRAINBINSLOPES:
-            strncpy(label, "DBSL", 4);
-            break;
-        case IO_DUSTCHEM_COAG_MASSRATE:
-            strncpy(label, "DBCO", 4);
-            break;
-        case IO_DUSTCHEM_SHAT_MASSRATE:
-            strncpy(label, "DBSH", 4);
-            break;
         case IO_DUSTCHEMGRAINBINMASS:
             strncpy(label, "DBMA", 4);
             break;
@@ -3771,6 +3857,12 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
             break;
         case IO_POT:
             strncpy(label, "POT ", 4);
+            break;
+        case IO_HERMITE_POS:
+            strncpy(label, "HPOS", 4);
+            break;
+        case IO_HERMITE_VEL:
+            strncpy(label, "HVEL", 4);
             break;
         case IO_ACCEL:
             strncpy(label, "ACCE", 4);
@@ -3918,6 +4010,9 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
             break;
         case IO_EOSCOMP:
             strncpy(label, "COMP", 4);
+            break;
+        case IO_EOSPHASE:
+            strncpy(label, "PHID", 4);
             break;
         case IO_PARTVEL:
             strncpy(label, "PVEL", 4);
@@ -4092,6 +4187,11 @@ void get_dataset_name(enum iofields blocknr, char *buf)
         case IO_GENERATION_ID:
             strcpy(buf, "ParticleIDGenerationNumber");
             break;
+#ifdef SINGLE_STAR_AND_SSP_NUCLEAR_ZOOM_TAG_ANCHOR
+        case IO_REFINE_FLAG:
+            strcpy(buf, "RefinementFlag");
+            break;
+#endif
         case IO_MASS:
             strcpy(buf, "Masses");
             break;
@@ -4136,7 +4236,10 @@ void get_dataset_name(enum iofields blocknr, char *buf)
             break;
         case IO_UNSPMASS:
             strcpy(buf, "Unspawned_Wind_Mass");
-            break;     
+            break;
+        case IO_UNSPJETMASS:
+            strcpy(buf, "Unspawned_Jet_Mass");
+            break;
         case IO_CRATE:
             strcpy(buf, "CoolingRate");
             break;
@@ -4203,17 +4306,8 @@ void get_dataset_name(enum iofields blocknr, char *buf)
         case IO_DUSTCHEMGRAINBINNUMBERS:
             strcpy(buf, "DustBinNumbers");
             break;
-        case IO_DUSTCHEMGRAINBINSLOPES:
-            strcpy(buf, "DustBinSlopes");
-            break;
         case IO_DUSTCHEMGRAINBINMASS:
             strcpy(buf, "DustBinMasses");
-            break;
-        case IO_DUSTCHEM_COAG_MASSRATE:
-            strcpy(buf, "DustBinCoagMassRate");
-            break;
-        case IO_DUSTCHEM_SHAT_MASSRATE:
-            strcpy(buf, "DustBinShatMassRate");
             break;
         case IO_CHIMES_ABUNDANCES:
             strcpy(buf, "ChimesAbundances");
@@ -4247,6 +4341,12 @@ void get_dataset_name(enum iofields blocknr, char *buf)
             break;
         case IO_POT:
             strcpy(buf, "Potential");
+            break;
+        case IO_HERMITE_POS:
+            strcpy(buf, "HermiteSyncCoordinates");
+            break;
+        case IO_HERMITE_VEL:
+            strcpy(buf, "HermiteSyncVelocities");
             break;
         case IO_ACCEL:
             strcpy(buf, "Acceleration");
@@ -4395,6 +4495,9 @@ void get_dataset_name(enum iofields blocknr, char *buf)
         case IO_EOSCOMP:
             strcpy(buf, "CompositionType");
             break;
+        case IO_EOSPHASE:
+            strcpy(buf, "PhaseID");
+            break;
         case IO_PARTVEL:
             strcpy(buf, "ParticleVelocities");
             break;
@@ -4507,10 +4610,10 @@ void get_dataset_name(enum iofields blocknr, char *buf)
             strcpy(buf, "ClusterSink_MSPs_Age");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_INITIALAGE:
-            strcpy(buf, "ClusterSink_MSPs_Age");
+            strcpy(buf, "ClusterSink_MSPs_InitialAge");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_INITIALMETALLICITY:
-            strcpy(buf, "ClusterSink_MSPs_Age");
+            strcpy(buf, "ClusterSink_MSPs_InitialMetallicity");
             break;
         case IO_CLUSTER_SINK_MSPPROPS_METALLICITY:
             strcpy(buf, "ClusterSink_MSPs_Metallicity");
@@ -4834,10 +4937,22 @@ void write_file(char *fname, int writeTask, int lastTask)
                             if(dims[0] > 10)
                             {
                             	hid_t plist_id = H5Pcreate(H5P_DATASET_CREATE);
-                            	hsize_t cdims[2]; cdims[0] = (hsize_t) (dims[0] / 10); cdims[1] = dims[1];
-                            	hdf5_status = H5Pset_chunk (plist_id, rank, cdims);
-                            	hdf5_status = H5Pset_deflate (plist_id, 4);
+                            	/* Use many small chunks (~4096 rows) so incremental hyperslab writes
+                            	   don't trigger repeated decompress-recompress of huge chunks. The old
+                            	   code used dims[0]/10 which could be millions of rows, causing massive
+                            	   slowdowns with MPI parallel writes. */
+                            	hsize_t target_chunk_rows = 4096;
+                            	if(target_chunk_rows > dims[0]) {target_chunk_rows = dims[0];}
+                            	hsize_t cdims[2]; cdims[0] = target_chunk_rows; cdims[1] = dims[1];
+                            	hdf5_status = H5Pset_chunk(plist_id, rank, cdims);
+                            	/* Shuffle reorders bytes for better compression (nearly free CPU cost).
+                            	   Deflate/gzip level 1 is fast and gives ~1.5-2x compression on float data.
+                            	   The combination shuffle+deflate(1) is much faster than deflate(4) alone
+                            	   and achieves similar or better compression ratios. */
+                            	hdf5_status = H5Pset_shuffle(plist_id);
+                            	hdf5_status = H5Pset_deflate(plist_id, 1);
                             	hdf5_dataset = H5Dcreate2(hdf5_grp[type], buf, hdf5_datatype, hdf5_dataspace_in_file, H5P_DEFAULT, plist_id, H5P_DEFAULT);
+                            	H5Pclose(plist_id);
                             } else {
                             	hdf5_dataset = H5Dcreate(hdf5_grp[type], buf, hdf5_datatype, hdf5_dataspace_in_file, H5P_DEFAULT);
                             }

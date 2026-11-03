@@ -130,7 +130,8 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
     // total mass being ejected
     in->Msne = total_mass_snii + total_mass_snia + total_mass_winds;
     // velocity of the combined ejecta in code units
-    in->SNe_v_ejecta = sqrt(2.*(total_energy_snii + total_energy_snia + total_energy_winds)/in->Msne); 
+    if (in->Msne) in->SNe_v_ejecta = sqrt(2.*(total_energy_snii + total_energy_snia + total_energy_winds)/in->Msne); 
+    else in->SNe_v_ejecta = 0; // if no mass is ejected, set the velocity to zero
 
 #ifdef CLUSTER_SINK_DEBUG
     if (P[i].ID == DEBUG_ID){
@@ -139,19 +140,21 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
     }
 #endif
 #ifdef METALS
-    for(k=0;k<NUM_METAL_SPECIES;k++) {
-        in->yields[k] = (yields_snii[k] * total_mass_snii + yields_snia[k] * total_mass_snia + yields_winds[k] * total_mass_winds)/in->Msne;
+    if (in->Msne){
+        for(k=0;k<NUM_METAL_SPECIES;k++) {
+            in->yields[k] = (yields_snii[k] * total_mass_snii + yields_snia[k] * total_mass_snia + yields_winds[k] * total_mass_winds)/in->Msne;
 #ifdef CLUSTER_SINK_DEBUG
-    if (P[i].ID == DEBUG_ID){
-        printf("[DEBUG - set_fb_input_quantities_from_msps - yields] - ThisTask %d, P[i].ID %d - yield k %d, total_mass_snii %g, total_mass_snia %g, total_mass_winds %g - yields [%g, %g, %g] = [%g]\n",
-            ThisTask, P[i].ID, k, total_mass_snii, total_mass_snia, total_mass_winds, yields_snii[k], yields_snia[k], yields_winds[k], in->yields[k]);    }
+            if (P[i].ID == DEBUG_ID) printf("[DEBUG - set_fb_input_quantities_from_msps - yields] - ThisTask %d, P[i].ID %d - yield k %d, total_mass_snii %g, total_mass_snia %g, total_mass_winds %g - yields [%g, %g, %g] = [%g]\n",
+                    ThisTask, P[i].ID, k, total_mass_snii, total_mass_snia, total_mass_winds, yields_snii[k], yields_snia[k], yields_winds[k], in->yields[k]);    
 #endif
-        assert((in->yields[k] >= 0.)&&(in->yields[k] < 1.));
-    }
+        }
+    } else for(k=0;k<NUM_METAL_SPECIES;k++) in->yields[k] = 0; // if no mass is ejected, set the yields to zero
+
+    for(k=0;k<NUM_METAL_SPECIES;k++) assert((in->yields[k] >= 0.)&&(in->yields[k] < 1.));
 #endif
 
 
-#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS // output the gas and feedback properties for every active sink doing feedback // MRC - not 100% happy of this here
+/*#ifdef CLUSTER_SINK_OUTPUT_FBGASPROPS // output the gas and feedback properties for every active sink doing feedback // MRC - not 100% happy of this here
     int num_snia = 0, num_snii = 0;
     for(int j = 0; j<CLUSTER_SINK_NUMMSP; j++){ if (P[i].MSP[j].Mass > 0) { num_snia += P[i].SNIa_ThisTimeStep[j]; num_snii += P[i].SNII_ThisTimeStep[j];} }
     // 0: Time, 1: ID, 2: Mass, 3: age in Myr, 4-6: Pos, 7: number of SNII per per step, 8: number of SNIa per step, 9: total number of SNe per step, 10: density within the kernel, 
@@ -164,7 +167,7 @@ void set_fb_input_quantities_from_msps(struct addFB_evaluate_data_in_ *in, int i
         yields_snia[0], yields_snia[1], yields_snia[2], yields_snia[3], yields_snia[4], yields_snia[5], yields_snia[6], yields_snia[7], yields_snia[8], yields_snia[9], yields_snia[10],
         yields_winds[0], yields_winds[1], yields_winds[2], yields_winds[3], yields_winds[4], yields_winds[5], yields_winds[6], yields_winds[7], yields_winds[8], yields_winds[9], yields_winds[10]);
         fflush(FdCSFBGasProps);
-#endif
+#endif*/
 }
 
 /** \brief Calculates the mass lost due to each feedbach mechanism from each multiple stellar populations
@@ -202,7 +205,7 @@ void calculate_fb_mass_ejected_for_msps(struct fb_massloss_for_msp *fb_dm, int i
 
 #ifdef CLUSTER_SINK_WINDS
     // particle timestep in Myr
-    double dt = GET_PARTICLE_TIMESTEP_IN_PHYSICAL(i) * UNIT_TIME_IN_MYR;
+    double dt = get_particle_timestep_in_physical(i) * UNIT_TIME_IN_MYR;
 #ifdef SINK_INTERACT_ON_GAS_TIMESTEP
     dt = P[i].dt_since_last_gas_search * UNIT_TIME_IN_MYR;
 #endif
@@ -229,7 +232,7 @@ void reduce_mass_from_msps(void)
     int i, j;
     struct fb_massloss_for_msp fb_dm;
     // loop over all active particles //
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    for (int i : ActiveParticleList)
     {
         // future: maybe converts sinks to PartType 4
         // if((P[i].Type!=4)&&(P[i].Type!=5)) {continue;} // has this sink output feedback in this timestep?
@@ -335,15 +338,15 @@ double determine_sne_rates(int i, double dt)
         P[i].SNe_ThisTimeStep += P[i].SNII_ThisTimeStep[j] + P[i].SNIa_ThisTimeStep[j]; 
 #ifdef CLUSTER_SINK_DEBUG_ONESNE
         // debug: only one SNe
-        if (P[i].MSP[j].CumNumSNe > 0){ P[i].SNe_ThisTimeStep = 0; RSNe = 0; }
+        if (P[i].MSP[j].CumNumSNe > 0){ P[i].SNe_ThisTimeStep = 0; RSNe = 0; P[i].SNII_ThisTimeStep[j] = 0; P[i].SNIa_ThisTimeStep[j] = 0;}
 #endif
 
 #ifdef CLUSTER_SINK_WINDS 
         // do wind FB even when there are no SNe
-        if (P[i].SNe_ThisTimeStep == 0){ RSNe += 1; P[i].SNe_ThisTimeStep += 0.2;}
+        if (P[i].SNe_ThisTimeStep == 0){ RSNe += 0; P[i].SNe_ThisTimeStep += 0.2;}
 #endif 
-    }
 
+    }
     return RSNe;
 }
 

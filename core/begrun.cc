@@ -196,13 +196,20 @@ void begrun(void)
   GrNr = -1;
 #endif
 
-#ifdef EOS_TABULATED
+#if defined(EOS_TABULATED) && !defined(EOS_ANEOS)
     int ierr = eos_init(All.EosTable);
     if(ierr) {printf("error initializing the eos"); endrun(1);}
 #endif
 
 #ifdef EOS_TILLOTSON
     tillotson_eos_init();
+#endif
+
+#ifdef EOS_ANEOS
+    for(int aneos_k = 0; aneos_k < All.AneosNumMaterials; aneos_k++) {
+        int aneos_ierr = aneos_read_table(All.AneosTableFiles[aneos_k], aneos_k);
+        if(aneos_ierr) {printf("ANEOS: error loading table %d from %s\n", aneos_k, All.AneosTableFiles[aneos_k]); endrun(1);}
+    }
 #endif
 
 #ifdef TURB_DRIVING
@@ -234,6 +241,12 @@ void begrun(void)
 				   copied in the way below.
 				   Note:  All.PartAllocFactor is treated in restart() separately.
 				 */
+
+#ifdef WAKEUP
+      /* P[].wakeup is serialized, the flag that gates acting on it is not. Force one pass so the
+         flag is rebuilt from the requests that came back, instead of resuming with it closed. */
+      NeedToWakeupParticles_local = 1;
+#endif
 
       All.MinSizeTimestep = all.MinSizeTimestep;
       All.MaxSizeTimestep = all.MaxSizeTimestep;
@@ -276,6 +289,10 @@ void begrun(void)
         All.NumFilesPerSnapshot = all.NumFilesPerSnapshot;
         All.NumFilesWrittenInParallel = all.NumFilesWrittenInParallel;
         All.TreeDomainUpdateFrequency = all.TreeDomainUpdateFrequency;
+#ifdef MHD_MODIFIED_GRADIENT
+        All.ActiveFractionForMGSweep = all.ActiveFractionForMGSweep;
+        All.Flag_SkipMGSolve = 0; /* first timestep always runs the MG global solve */
+#endif
 
         All.OutputListOn = all.OutputListOn;
         All.CourantFac = all.CourantFac;
@@ -305,8 +322,10 @@ void begrun(void)
 #ifdef DIVBCLEANING_DEDNER
         All.DivBcleanParabolicSigma = all.DivBcleanParabolicSigma;
         All.DivBcleanHyperbolicSigma = all.DivBcleanHyperbolicSigma;
-        All.FastestWaveSpeed = 0.0;
-        All.FastestWaveDecay = 0.0;
+        /* derived state, not parameters: recomputed only on global timesteps. Zeroing on restart
+           forces a recompute at the resume step, which off a global sync gives a different value
+           than the resumed run carried, perturbing the Dedner damping rate. restart() restores them. */
+        if(RestartFlag != 1) {All.FastestWaveSpeed = 0.0; All.FastestWaveDecay = 0.0;}
 #endif
 #ifdef SINK_PARTICLES
         All.SinkEddingtonFactor = all.SinkEddingtonFactor;
@@ -430,8 +449,13 @@ void begrun(void)
       strcpy(All.GrackleDataFile, all.GrackleDataFile);
 #endif
 
-#ifdef EOS_TABULATED
+#if defined(EOS_TABULATED) && !defined(EOS_ANEOS)
         strcpy(All.EosTable, all.EosTable);
+#endif
+#ifdef EOS_ANEOS
+        All.AneosNumMaterials = all.AneosNumMaterials;
+        for(int aneos_k = 0; aneos_k < ANEOS_MAX_MATERIALS; aneos_k++)
+            strcpy(All.AneosTableFiles[aneos_k], all.AneosTableFiles[aneos_k]);
 #endif
 
       if(All.TimeMax != all.TimeMax) {readjust_timebase(All.TimeMax, all.TimeMax);}
@@ -467,7 +491,7 @@ void begrun(void)
     single_star_SN_init_directions();
 #endif
 #ifdef RT_RAD_PRESSURE_OUTPUT
-    {int i; for(i=0;i<NumPart;i++) {int k; for(k=0;k<3;k++) {CellP[i].Rad_Accel[k]=0;}}}
+    {int i; for(i=0;i<NumPart;i++) {CellP[i].Rad_Accel = {};}}
 #endif
 #ifdef RADTRANSFER
 #if defined(RT_EVOLVE_INTENSITIES)
@@ -705,7 +729,7 @@ void open_outputfiles(void)
       fprintf(FdCSFormationDetails,"%s   (16) Turbulent velocity variance dv*dv [physical code units] from deviatoric shear tensor \n",prefix_char);
       fprintf(FdCSFormationDetails,"%s   (17) Virial parameter of the natal cell [code units] \n",prefix_char);
       fprintf(FdCSFormationDetails,"%s   (18) Minimum distance to nearest (other) sink [code units] \n",prefix_char);
-      fprintf(FdCSFormationDetails,"%s   (19-28) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+      fprintf(FdCSFormationDetails,"%s   (19-28) Metallicities as mass fractions [code units] \n",prefix_char); 
     }
 #endif
 #ifdef CLUSTER_SINK_OUTPUT_ACCRETIONHIST
@@ -725,7 +749,7 @@ void open_outputfiles(void)
       fprintf(FdCSAccretionDetails,"%s   (16) Temperature of the accreted gas cell [code units] \n",prefix_char);
       fprintf(FdCSAccretionDetails,"%s   (17) Density of the accreted gas cell [physical code units] \n",prefix_char);
       fprintf(FdCSAccretionDetails,"%s   (18) Pressure of the accreted gas cell [code units] \n",prefix_char);
-      fprintf(FdCSAccretionDetails,"%s   (19-28) Metallicities [code units] \n",prefix_char); // MRC - check: mass fractions?
+      fprintf(FdCSAccretionDetails,"%s   (19-28) Metallicities as mass fractions [code units] \n",prefix_char); 
   }
   snprintf(buf, DEFAULT_PATH_BUFFERSIZE_TOUSE, "%scluster_sink/sink_merginghist_%d.txt", All.OutputDir, ThisTask);
   if(!(FdCSMergingDetails = fopen(buf, mode))) {printf("error in opening file '%s'\n", buf); endrun(1);}
@@ -756,11 +780,11 @@ void open_outputfiles(void)
     fprintf(FdCSFBGasProps,"%s   (9) Number of SNIa \n",prefix_char);
     fprintf(FdCSFBGasProps,"%s   (10) Number of SNe \n",prefix_char);
     fprintf(FdCSFBGasProps,"%s   (11) Density within the kernel [physical code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (12-14) Total mass ejected by SNII, SNIa and winds [code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (15-17) Total energy ejected by SNII, SNIa and winds [code units] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (18-28) Yields ejected by SNII [mass fractions] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (29-39) Yields ejected by SNIa [mass fractions] \n",prefix_char);
-    fprintf(FdCSFBGasProps,"%s   (40-50) Yields ejected by winds [mass fractions] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (12-14) Total mass ejected by SNII, SNIa and winds [code units] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (15-17) Total energy ejected by SNII, SNIa and winds [code units] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (18-28) Yields ejected by SNII [mass fractions] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (29-39) Yields ejected by SNIa [mass fractions] \n",prefix_char);
+    //fprintf(FdCSFBGasProps,"%s   (40-50) Yields ejected by winds [mass fractions] \n",prefix_char);
 }
 #endif
 #endif
@@ -1150,6 +1174,13 @@ void read_parameter_file(char *fname)
       strcpy(alternate_tag[nt], "TreeRebuild_ActiveFraction");
       addr[nt] = &All.TreeDomainUpdateFrequency;
       id[nt++] = REAL;
+
+#ifdef MHD_MODIFIED_GRADIENT
+      strcpy(tag[nt], "ActiveFractionForMGSweep");
+      strcpy(alternate_tag[nt], "MGSweep_ActiveFraction");
+      addr[nt] = &All.ActiveFractionForMGSweep;
+      id[nt++] = REAL;
+#endif
 
 #ifdef DEVELOPER_MODE
         strcpy(tag[nt], "ErrTolIntAccuracy");
@@ -1998,7 +2029,7 @@ void read_parameter_file(char *fname)
 #endif
 #endif
 
-#ifdef EOS_TABULATED
+#if defined(EOS_TABULATED) && !defined(EOS_ANEOS)
         strcpy(tag[nt], "EosTable");
         addr[nt] = All.EosTable;
         id[nt++] = STRING;
@@ -2044,6 +2075,20 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "Tillotson_EOS_params_beta");
         addr[nt] = &All.Tillotson_EOS_params[0][9];
         id[nt++] = REAL;
+#endif
+
+#ifdef EOS_ANEOS
+        strcpy(tag[nt], "AneosNumMaterials");
+        addr[nt] = &All.AneosNumMaterials;
+        id[nt++] = INT;
+
+        for(int aneos_k = 0; aneos_k < ANEOS_MAX_MATERIALS; aneos_k++) {
+            char aneos_tagname[64];
+            snprintf(aneos_tagname, sizeof(aneos_tagname), "AneosTable%d", aneos_k);
+            strcpy(tag[nt], aneos_tagname);
+            addr[nt] = All.AneosTableFiles[aneos_k];
+            id[nt++] = STRING;
+        }
 #endif
 
 #ifdef EOS_ELASTIC
@@ -2335,12 +2380,22 @@ void read_parameter_file(char *fname)
                 {
 
                     *buf = 0;
-                    fgets(buf, 200, fd);
+                    if(fgets(buf, sizeof(buf), fd) == NULL) {break;}   /* EOF, or a read error feof() will not report */
+                    int line_was_truncated = (strlen(buf) == sizeof(buf) - 1 && buf[sizeof(buf) - 2] != '\n' && !feof(fd));   /* !feof distinguishes a cut line from a final line that merely ends without a newline */
                     if(sscanf(buf, "%s%s%s", buf1, buf2, buf3) < 2)
                         continue;
 
                     if(buf1[0] == '%')
                         continue;
+                    /* Only now is this known to be a parameter line rather than a comment. A line
+                       that filled the buffer without its newline was cut mid-value, and the tail
+                       would be read as a line of its own -- a parameter set from a fragment. */
+                    if(line_was_truncated)
+                    {
+                        printf("PARAMETER FILE ERROR: line longer than %d characters in '%s':\n  %.60s...\n",
+                               (int) sizeof(buf) - 1, fname, buf);
+                        endrun(886601);
+                    }
 
                     for(i = 0, j = -1; i < nt; i++)
                         if((strcmp(buf1, tag[i]) == 0) || (strcmp(buf1, alternate_tag[i]) == 0))
@@ -2468,6 +2523,9 @@ void read_parameter_file(char *fname)
                 if(strcmp("MinGasKernelRadiusFractional",tag[i])==0) {*((double *)addr[i])=0; printf("Tag %s (%s) not set in parameter file: defaulting to assume no mininum (=%g) \n",tag[i],alternate_tag[i],All.MinGasKernelRadiusFractional); continue;}
 #endif
                 if(strcmp("TreeDomainUpdateFrequency",tag[i])==0) {*((double *)addr[i])=0.005; printf("Tag %s (%s) not set in parameter file: defaulting to guess that we should re-build whenever 0.5 percent of the system is active. But this should be adjusted manually for performance and accuracy in most cases (=%g) \n",tag[i],alternate_tag[i],All.TreeDomainUpdateFrequency); continue;}
+#ifdef MHD_MODIFIED_GRADIENT
+                if(strcmp("ActiveFractionForMGSweep",tag[i])==0) {*((double *)addr[i])=0; printf("Tag %s (%s) not set in parameter file: defaulting to run MG global solve when any gas is active (=%g) \n",tag[i],alternate_tag[i],All.ActiveFractionForMGSweep); continue;}
+#endif
                 if(strcmp("MaxKernelRadius",tag[i])==0) {*((double *)addr[i])=MAX_REAL_NUMBER; printf("Tag %s (%s) not set in parameter file: defaulting to assume no maximum (=%g) \n",tag[i],alternate_tag[i],All.MaxKernelRadius); continue;}
                 if(strcmp("GravityConstantInternal",tag[i])==0) {*((double *)addr[i])=0; printf("Tag %s (%s) not set in parameter file: defaulting to calculating in terms of other specified units if needed (=%g) \n",tag[i],alternate_tag[i],All.G); continue;}
                 if(strcmp("MinSizeTimestep",tag[i])==0) {*((double *)addr[i])=0; printf("Tag %s (%s) not set in parameter file: defaulting to minimum allowed by memory table-size (=%g) \n",tag[i],alternate_tag[i],All.MinSizeTimestep); continue;}
@@ -2611,7 +2669,9 @@ void read_parameter_file(char *fname)
                 if(strcmp("SeedSinkMassSigma",tag[i])==0) {*((double *)addr[i])=0; printf("Tag %s (%s) not set in parameter file: defaulting to a uniform sink seed mass (=%g) \n",tag[i],alternate_tag[i],All.SeedSinkMassSigma); continue;}
                 if(strcmp("SeedSinkMinRedshift",tag[i])==0) {*((double *)addr[i])=0; printf("Tag %s (%s) not set in parameter file: defaulting to allow seed creation at all times (=%g) \n",tag[i],alternate_tag[i],All.SeedSinkMinRedshift); continue;}
                 if(strcmp("SeedReservoirMass",tag[i])==0) {*((double *)addr[i])=0; printf("Tag %s (%s) not set in parameter file: defaulting to sinks beginning their existence without an active accretion disk (=%g) \n",tag[i],alternate_tag[i],All.SeedReservoirMass); continue;}
+#ifdef SINK_PHOTONMOMENTUM /* Sink_Rad_MomentumFactor only exists with this on; FIRE_BHS no longer implies it (mutex with explicit RT solvers) */
                 if(strcmp("Sink_FluxMomentumFactor",tag[i])==0) {*((double *)addr[i])=1; printf("Tag %s (%s) not set in parameter file: defaulting to using actual AGN spectrum for radiative feedback (=%g) \n",tag[i],alternate_tag[i],All.Sink_Rad_MomentumFactor); continue;}
+#endif
                 if(strcmp("Sink_accreted_fraction",tag[i])==0) {*((double *)addr[i])=0.5; printf("Tag %s (%s) not set in parameter file: defaulting to assume equal sink accretion and outflow rate intrinsically (=%g) \n",tag[i],alternate_tag[i],All.Sink_accreted_fraction); continue;}
                 if(strcmp("Sink_outflow_velocity",tag[i])==0) {*((double *)addr[i])=1.e4; printf("Tag %s (%s) not set in parameter file: defaulting to assume mechanical outflow with 1e4 km/s assuming km/s code units (=%g) \n",tag[i],alternate_tag[i],All.Sink_outflow_velocity); continue;}
 #if defined(SINK_WIND_SPAWN)
@@ -2632,11 +2692,17 @@ void read_parameter_file(char *fname)
                 if(strcmp("ST_SolWeight",tag[i])==0) {*((double *)addr[i])=0.5; printf("Tag %s (%s) not set in parameter file: defaulting to assume the so-called natural mix of modes for pressure-free turbulence (=%g) \n",tag[i],alternate_tag[i],All.TurbDriving_Global_SolenoidalFraction); continue;}
 #endif
 #ifdef GALSF_FB_FIRE_AGE_TRACERS
-                if(strcmp("AgeTracerEventsPerTimeBin",tag[i])==0) {*((double *)addr[i])=10; printf("Tag %s (%s) not set in parameter file: defaulting to aim for ~10 age-tracer deposition events per timebin (=%g) \n",tag[i],alternate_tag[i],All.AgeTracerRateNormalization); continue;}
+                if(strcmp("AgeTracerEventsPerTimeBin",tag[i])==0) {*((double *)addr[i])=10; printf("Tag %s (%s) not set in parameter file: defaulting to aim for ~10 enrichment-age-tracer deposition events per timebin (=%g) \n",tag[i],alternate_tag[i],All.AgeTracerRateNormalization); continue;}
 #if !defined(GALSF_FB_FIRE_AGE_TRACERS_CUSTOM)
-                if(strcmp("AgeTracerBinStart",tag[i])==0) {*((double *)addr[i])=1.; printf("Tag %s (%s) not set in parameter file: left-edge of first age-tracer bin is early in stellar evolution (=%g Myr) \n",tag[i],alternate_tag[i],All.AgeTracerBinStart); continue;}
-                if(strcmp("AgeTracerBinEnd",tag[i])==0) {*((double *)addr[i])=14000.; printf("Tag %s (%s) not set in parameter file: right-edge of last age-tracer bin is at ~t_Hubble (=%g Myr) \n",tag[i],alternate_tag[i],All.AgeTracerBinEnd); continue;}
+                if(strcmp("AgeTracerBinStart",tag[i])==0) {*((double *)addr[i])=1.; printf("Tag %s (%s) not set in parameter file: left-edge of first enrichment-age-tracer bin, to determine log spacing (=%g Myr) \n",tag[i],alternate_tag[i],All.AgeTracerBinStart); continue;}
+                if(strcmp("AgeTracerBinEnd",tag[i])==0) {*((double *)addr[i])=13700.; printf("Tag %s (%s) not set in parameter file: right-edge of last enrichment-age-tracer bin, to determine log spacing, is at ~t_Hubble (=%g Myr) \n",tag[i],alternate_tag[i],All.AgeTracerBinEnd); continue;}
 #endif
+#endif
+#ifdef EOS_ANEOS
+                if(strncmp(tag[i], "AneosTable", 10)==0) {strcpy((char *)addr[i], "none"); continue;} /* unused ANEOS table slots default to 'none' */
+#endif
+#ifdef DEVELOPER_MODE
+                if(strcmp("CourantFac",tag[i])==0) {*((double *)addr[i])=0.2; printf("Tag %s (%s) not set in parameter file: defaulting to standard CFL safety factor (=%g) \n",tag[i],alternate_tag[i],All.CourantFac); continue;}
 #endif
                 printf("ERROR. I miss a required value for tag '%s' (or alternate name '%s') in parameter file '%s'.\n", tag[i], alternate_tag[i], fname);
                 errorFlag = 1;
@@ -2672,9 +2738,9 @@ void read_parameter_file(char *fname)
         ChimesGlobalVars.reionisation_redshift = (ChimesFloat) z_reion_buf;
     }
     MPI_Bcast(&ChimesGlobalVars, sizeof(struct globalVariables), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&ChimesDataPath, 256 * sizeof(char), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&ChimesEqAbundanceTable, 196 * sizeof(char), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&ChimesPhotoIonTable, 196 * sizeof(char), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&ChimesDataPath, sizeof(ChimesDataPath), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&ChimesEqAbundanceTable, sizeof(ChimesEqAbundanceTable), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&ChimesPhotoIonTable, sizeof(ChimesPhotoIonTable), MPI_BYTE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&chimes_rad_field_norm_factor, sizeof(double), MPI_BYTE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&shielding_length_factor, sizeof(double), MPI_BYTE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&cr_rate, sizeof(double), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -2948,20 +3014,20 @@ void read_parameter_file(char *fname)
 int read_agetracerlist(char *fname)
 {
     FILE *fd; int count,i=0; char buf[512];
-    if(!(fd = fopen(fname, "r"))) {printf("can't read age tracer list in file '%s'\n", fname); return 1;}
+    if(!(fd = fopen(fname, "r"))) {printf("can't read enrichment-age-tracer list in file '%s'\n", fname); return 1;}
     while(1)
     {
       if(fgets(buf, 500, fd) != buf) {break;}
       count = sscanf(buf, " %lg", &All.AgeTracerTimeBins[i]);
       if(count == 1 || count == 2)
       {
-          if(i >= NUM_AGE_TRACERS+1) {PRINT_WARNING("Too many entries in age tracer list. You should increase NUM_AGE_TRACERS=%d",(int)NUM_AGE_TRACERS); endrun(314);}
+          if(i >= NUM_AGE_TRACERS+1) {PRINT_WARNING("Too many entries in enrichment-age-tracer list. You should increase NUM_AGE_TRACERS=%d",(int)NUM_AGE_TRACERS); endrun(314);}
           i++;
       }
     }
-    if(i < NUM_AGE_TRACERS+1) {PRINT_WARNING("Not enough entries in age tracer list. Found %d entries, but we need %d\n", i, NUM_AGE_TRACERS+1); endrun(314);}
+    if(i < NUM_AGE_TRACERS+1) {PRINT_WARNING("Not enough entries in enrichment-age-tracer list. Found %d entries, but we need %d\n", i, NUM_AGE_TRACERS+1); endrun(314);}
     fclose(fd);
-    if(ThisTask==0) {printf("Read age tracer bin set. Found %d age tracer bin edges in age tracer list.\n", i); fflush(stdout);}
+    if(ThisTask==0) {printf("Read enrichment-age-tracer bin set. Found %d age bin edges in age list.\n", i); fflush(stdout);}
     return 0;
 }
 #endif
